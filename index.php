@@ -1,9 +1,6 @@
 <?php
 
-$dsn = '';
-$clients = array
-(
-);
+require_once('config.php');
 
 /**
 * The MIT License
