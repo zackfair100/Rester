@@ -16,6 +16,12 @@ class ApiResponse {
 			case 204:
 			$status = "No Content";
 			break;
+			case 403:
+			$status = "Forbidden";
+			break;
+			case 503:
+			$status = "Service Unavailable";
+			break;
 		}
 		
 		$result = array

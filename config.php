@@ -1,6 +1,0 @@
-<?php
-$dsn = '';
-$clients = array
-(
-);
-?>
