@@ -6,6 +6,8 @@ class ResterController {
 
 	var $routes = array();
 	
+	var $customRoutes = array();
+	
 	var $dbController;
 	
 	var $requestProcessors = array();

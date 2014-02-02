@@ -1,0 +1,6 @@
+[submodule "doc/swagger-php"]
+	path = doc/swagger-php
+	url = https://github.com/zircote/swagger-php.git
+[submodule "doc/swagger-ui"]
+	path = doc/swagger-ui
+	url = https://github.com/wordnik/swagger-ui.git
