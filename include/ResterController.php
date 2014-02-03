@@ -25,7 +25,7 @@ class ResterController {
 		* Else we process the parameters, checks if we have a command or an ID to return the results 
 		*/
 		$this->addRequestProcessor("GET", function($routeName = NULL, $routePath = NULL, $parameters = NULL) {
-			error_log("PROCESSING GET ".$routeName." - ".$routePath." - ".$parameters);
+			error_log("PROCESSING GET ONE ".$routeName." - ".$routePath." - ".$parameters);
 			//If we ask for the root, give the docs
 			if($routeName == NULL) {
 				$this->showRoutes();
@@ -38,17 +38,27 @@ class ResterController {
 		
 			if(count($routePath) == 1) {
 				$command = $routePath[0];
-				if(is_numeric($command)) { //if its numeric we'll treat like an ID
+				
+				if(isset($this->customRoutes["GET"][$routeName][$command])) {
+					$callback = $this->customRoutes["GET"][$routeName][$command];
+					call_user_func($callback, $parameters);
+				} else {
 					$result = array_shift($this->getObjectByID($routeName, $command));
+					$this->showResult($result);
+				}
+				
+				/*
+				if(is_numeric($command)) { //if its numeric we'll treat like an ID
+					
 				} else {
 					switch($command) {
 						case "list":
 						$result = $this->getObjectsFromRoute($routeName, $parameters);
 						break;
 					}
-				}
+				}*/
 				
-				$this->showResult($result);
+								
 			}
 		});
 		
@@ -87,6 +97,10 @@ class ResterController {
 		});
 	}
 	
+	function addCustomRoute($method, $routeName, $command, $callback) {
+		$this->customRoutes[$method][$routeName][$command]=$callback;
+	}
+	
 	function checkClientRestriction() {
 		if ((empty($clients) !== true) && (in_array($_SERVER['REMOTE_ADDR'], (array) $clients) !== true))
 		{
@@ -103,6 +117,7 @@ class ResterController {
 		if(isset($this->requestProcessors[$requestMethod])) {
 			foreach($this->requestProcessors[$requestMethod] as $callback) {
 			
+				error_log("PROCESSING ".$requestMethod);
 				$callbackParameters = array();
 				
 				if($this->getCurrentRoute() && $this->getCurrentRoute() != "/") {
@@ -223,17 +238,30 @@ class ResterController {
 		return $result;*/
 	}
 	
-	function getObjectsFromRoute($routeName, $filters) {
+	function getObjectsFromRoute($routeName, $filters = NULL, $order = NULL) {
 		$query = array(sprintf('SELECT * FROM "%s"', $routeName));
 		
-		if (isset($filters['by']) === true)
+		/*$query = array (
+			sprintf('SELECT * FROM "%s"', $routeName),
+			sprintf('WHERE "%s" %s ?', $id, (ctype_digit($data) === true) ? '=' : 'LIKE'),
+		);*/
+		$i = 0;
+		foreach($filters as $filterField => $filterValue) {
+			if($i == 0)
+				$query[] = sprintf("WHERE %s = '%s'",  $filterField, $filterValue);
+			else
+				$query[] = sprintf("AND %s = '%s'",  $filterField, $filterValue);
+			$i++;
+		}
+		
+		if (isset($order['by']) === true)
 		{
-			if (isset($filters['order']) !== true)
+			if (isset($order['order']) !== true)
 			{
-				$filters['order'] = 'ASC';
+				$order['order'] = 'ASC';
 			}
 
-			$query[] = sprintf('ORDER BY "%s" %s', $filters['by'], $filters['order']);
+			$query[] = sprintf('ORDER BY "%s" %s', $order['by'], $order['order']);
 		}
 
 		if (isset($filters['limit']) === true)
@@ -289,6 +317,7 @@ class ResterController {
 	}
 	
 	function showResult($result) {
+		error_log("SHOW RESULT");
 		if ($result === false || count($result) == 0) {
 			$this->showError(404);
 		} else if (empty($result) === true) {
@@ -296,7 +325,10 @@ class ResterController {
 		} else if($result === true) {
 			$this->doResponse(ApiResponse::successResponse());
 		} else {
-			$this->doResponse($result);
+			if(is_array($result) && count($result) == 1)
+				$this->doResponse($result[0]);
+			else
+				$this->doResponse($result);
 		}
 	}
 	

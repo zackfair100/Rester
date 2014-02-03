@@ -67,6 +67,8 @@ class ArrestDB
 						$sequence = sprintf('%s_id_seq', trim($sequence, '"'));
 					}
 					
+					error_log("QUERY: ".$query);
+					
 					switch (strtoupper(strstr($query, ' ', true)))
 					{
 						case 'INSERT':

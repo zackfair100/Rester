@@ -33,6 +33,23 @@ else if (array_key_exists('HTTP_X_HTTP_METHOD_OVERRIDE', $_SERVER) === true)
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
+$resterController->addCustomRoute("GET", "usuarios", "login", function($params = NULL) {
+
+	
+	global $resterController;
+	
+	$filter["login"]=$params["login"];
+	$filter["password"]=md5($params["password"]);
+	
+	$result = $resterController->getObjectsFromRoute("usuarios", $filter);
+
+	$resterController->showResult($result);
+});
+ 
+//Do the work
+$resterController->processRequest($requestMethod);
+
+
 /*
 $resterController->addRequestProcessor("GET", "/(#any)/list", function($route) {
 	global $resterController;
@@ -50,8 +67,6 @@ $resterController->addRequestProcessor("GET", "/", function() {
 */
 
 
-//Do the work
-$resterController->processRequest($requestMethod);
 
 /*
 ArrestDB::Serve('GET', '/(#any)/(#any)/(#any)', function ($table, $id, $data)
