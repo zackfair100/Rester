@@ -11,6 +11,7 @@ class SwaggerHelper {
 		
 		//Without parameter
 		$apiCREATE["path"]="/".$route->routeName;
+		$apiCREATE["operations"][]=SwaggerHelper::createOperation("GET", $route, SwaggerHelper::getParametersFromRoute($route, "GET"), $route->routeName);
 		$apiCREATE["operations"][]=SwaggerHelper::createOperation("POST", $route, SwaggerHelper::getParametersFromRoute($route, "POST"), $route->routeName);
 		$apiCREATE["operations"][]=SwaggerHelper::createOperation("PUT", $route, SwaggerHelper::getParametersFromRoute($route, "PUT"), $route->routeName);
 		
@@ -19,15 +20,12 @@ class SwaggerHelper {
 		$apiID["operations"][]=SwaggerHelper::createOperation("PUT", $route, SwaggerHelper::getParametersFromRoute($route, "PUT", "id"), "void");	
 		$apiID["operations"][]=SwaggerHelper::createOperation("DELETE", $route, SwaggerHelper::getParametersFromRoute($route, "DELETE", "id"), "void");
 				
-		$apiLIST["path"] = "/".$route->routeName."/list";
-		$apiLIST["operations"][]=SwaggerHelper::createOperation("GET", $route, SwaggerHelper::getParametersFromRoute($route, "GET", "list"), "array[".$route->routeName."]");
+		/*$apiLIST["path"] = "/".$route->routeName."/list";
+		$apiLIST["operations"][]=SwaggerHelper::createOperation("GET", $route, SwaggerHelper::getParametersFromRoute($route, "GET", "list"), "array[".$route->routeName."]");*/
 		
-		$apis = array($apiCREATE, $apiID, $apiLIST);
+		$apis = array($apiCREATE, $apiID);
 		
 		foreach($route->routeCommands as $command) {
-		
-		
-		
 			$apiCommand["path"] = "/".$route->routeName."/".$command->routeCommand;
 			$apiCommand["operations"][]=SwaggerHelper::createOperation($command->method, $route, SwaggerHelper::getParametersFromCommand($command), $route->routeName);
 			$apis[] = $apiCommand;
@@ -225,7 +223,7 @@ class SwaggerHelper {
 		foreach($routes as $routeName => $routeObject) {
 
 			$operation["description"]="Operations about ".$routeName;
-			$operation["path"]="/".$routeName;
+			$operation["path"]="/api-doc/".$routeName;
 		
 			$r[] = $operation;
 		}
