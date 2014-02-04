@@ -45,20 +45,7 @@ class ResterController {
 				} else {
 					$result = array_shift($this->getObjectByID($routeName, $command));
 					$this->showResult($result);
-				}
-				
-				/*
-				if(is_numeric($command)) { //if its numeric we'll treat like an ID
-					
-				} else {
-					switch($command) {
-						case "list":
-						$result = $this->getObjectsFromRoute($routeName, $parameters);
-						break;
-					}
-				}*/
-				
-								
+				}								
 			}
 		});
 		
@@ -66,6 +53,16 @@ class ResterController {
 			
 			if(!isset($routeName)) {
 				$this->showError(400);
+			}
+		
+			//Check for command
+			if(count($routePath) == 1) {
+				$command = $routePath[0];
+				if(isset($this->customRoutes["POST"][$routeName][$command])) {
+					$callback = $this->customRoutes["POST"][$routeName][$command];
+					call_user_func($callback, $parameters);
+					return;
+				}
 			}
 		
 			if (empty($_POST) === true) {
@@ -95,14 +92,66 @@ class ResterController {
 			}
 		
 		});
+		
+		$this->addRequestProcessor("PUT", function($routeName, $routePath) {
+		
+			if(!isset($routeName)) {
+				$this->showError(400);
+			}
+			
+			
+			
+			$input = file_get_contents('php://input');
+			
+			parse_str($input, $putData);
+			
+			
+			
+			
+			if(empty($putData)) {
+				error_log("Empty PUT request");
+				$this->showError(400);
+			}
+			
+			if(!isset($routePath) || count($routePath) < 1) {
+			
+				$route = $this->getAvailableRoutes()[$routeName];
+				
+				$pk = $route->primaryKey;
+				
+				if(!isset($putData[$route->primaryKey->fieldName])) {
+					error_log("No PRIMARY KEY FIELD");
+					var_dump($putData);
+					echo $route->primaryKey->fieldName;
+					$this->showError(400);
+				} 
+				$this->updateObjectFromRoute($routeName, $putData[$route->primaryKey->fieldName], $putData);
+			} else {
+				$this->updateObjectFromRoute($routeName, $routePath[0], $putData);
+			}
+			
+			$result = $this->deleteObjectFromRoute($routeName, $routePath[0]);
+			
+			if($result > 0) {
+				$this->showResult(ApiResponse::successResponse());
+			} else {
+				$this->showResult($result);
+			}
+		
+		});
 	}
 	
 	function addRouteCommand($routeCommand) {
+		
+		if($routeCommand->method == "DELETE" || $routeCommand->method == "PUT") {
+			exit($routeCommand->method." is not supported on custom commands. Use GET or POST instead");
+		}
+	
 		$routes = $this->getAvailableRoutes();
 		if(isset($routes[$routeCommand->routeName])) {
 			$this->customRoutes[$routeCommand->method][$routeCommand->routeName][$routeCommand->routeCommand]=$routeCommand->callback;
 			$route = $routes[$routeCommand->routeName];
-			$route->routeCommands[$command]=$routeCommand;
+			$route->routeCommands[$routeCommand->routeCommand]=$routeCommand;
 		}
 	}
 	
@@ -132,7 +181,12 @@ class ResterController {
 					} else {
 						$callbackParameters[1] = NULL;
 					}
-					parse_str($_SERVER['QUERY_STRING'], $requestParameters);
+					
+					if($requestMethod == "GET")
+						parse_str($_SERVER['QUERY_STRING'], $requestParameters);
+					else if($requestMethod == "POST")
+						$requestParameters = $_POST;
+						
 					if(isset($requestParameters)) {
 						$callbackParameters[2] = $requestParameters;
 					}
@@ -310,6 +364,31 @@ class ResterController {
 		$result = $this->dbController->Query($query, $ID);
 
 		return $result;
+	}
+	
+	function updateObjectFromRoute($routeName, $objectID, $newData) {
+		if (empty($newData) === true) {
+			$this->showError(204);
+		}
+		
+		if(is_array($newData) === true) {
+			$data = array();
+
+			foreach ($newData as $key => $value) {
+				$data[$key] = sprintf('"%s" = ?', $key);
+			}
+
+			$query = array
+			(
+				sprintf('UPDATE "%s" SET %s WHERE "%s" = ?', $routeName, implode(', ', $newData), 'id'),
+			);
+
+			$query = sprintf('%s;', implode(' ', $query));
+			
+			$result = ArrestDB::Query($query, $newData);
+			
+			$this->showResult($result);
+		}
 	}
 	
 	/*************************************/

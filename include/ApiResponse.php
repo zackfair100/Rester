@@ -47,6 +47,9 @@ class ApiResponse {
 			case 404:
 			$status = "Not found";
 			break;
+			case 405:
+			$status = "Method not allowed";
+			break;
 			case 409:
 			$status = "Conflict";
 			break;

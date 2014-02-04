@@ -294,7 +294,7 @@ class ArrestDB
 		
 		foreach($result as $f) {
 			$routeField = new RouteField();
-			
+				
 			$routeField->fieldName = $f["Field"];
 			$routeField->fieldType = RouteField::getTypeFromMySQL($f["Type"]);
 			$routeField->isRequired = ($f["Null"] == "NO") ? true : false;
@@ -307,6 +307,10 @@ class ArrestDB
 						$routeField->setRelation($r);
 					}
 				}
+			}
+			
+			if($f["Key"] == "PRI") {
+				$route->primaryKey = $routeField;
 			}
 		
 			$routeFields[]=$routeField;

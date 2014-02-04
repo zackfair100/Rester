@@ -35,7 +35,7 @@ else if (array_key_exists('HTTP_X_HTTP_METHOD_OVERRIDE', $_SERVER) === true)
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
 
-$loginCommand = new RouteCommand("GET", "usuarios", "login", function($params = NULL) {
+$loginCommand = new RouteCommand("POST", "usuarios", "login", function($params = NULL) {
 	global $resterController;
 	
 	$filter["login"]=$params["login"];
@@ -279,7 +279,7 @@ ArrestDB::Serve('GET', NULL, function () {
 	return ArrestDB::Reply($result);
 });*/
 
-$result = ApiResponse::errorResponse(400);
+$result = ApiResponse::errorResponse(405);
 
 exit(ArrestDB::Reply($result));
 

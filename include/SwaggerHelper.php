@@ -93,10 +93,14 @@ class SwaggerHelper {
 			case "PUT":
 			
 				if($routeAction == "id") {
-					$parameters[] = SwaggerHelper::getIdParameter($route, true);
+					$parameters[] = SwaggerHelper::getIdParameter($route, true, false);
+				} else {
+					$parameters[] = SwaggerHelper::getIdParameter($route, true, true);
 				}
+				
+				$parameters = array_merge($parameters, SwaggerHelper::getParametersFromModel($route, false));
 
-				$parameters[] = SwaggerHelper::getBodyParameterFromModel($route);
+				//$parameters[] = SwaggerHelper::getBodyParameterFromModel($route);
 			break;
 			case "POST":
 				
@@ -113,9 +117,9 @@ class SwaggerHelper {
 		return $parameters;
 	}
 	
-	public static function getIdParameter($route, $required) {
-		return array('name' => $route->routeName."Id", 
-						'paramType' => 'path',
+	public static function getIdParameter($route, $required, $asForm = false) {
+		return array('name' => ($asForm === true) ? $route->primaryKey->fieldName : $route->routeName."Id", 
+						'paramType' => ($asForm === true) ? 'form' : 'path',
 						'type' => 'string',
 						'required' => $required,
 						"description" => "ID of ".$route->routeName);
