@@ -2,6 +2,7 @@
 
 require_once('config.php');
 
+
 class ResterController {
 
 	var $routes = array();
@@ -32,8 +33,7 @@ class ResterController {
 			}
 			
 			if(isset($routeName) && !isset($routePath)) {
-				$routes = $this->getAvailableRoutes();
-				$this->doResponse(SwaggerHelper::getDocFromRoute($routes[$routeName], $routes));
+				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routeName], $this->getAvailableRoutes()));
 			}
 		
 			if(count($routePath) == 1) {
@@ -97,8 +97,13 @@ class ResterController {
 		});
 	}
 	
-	function addCustomRoute($method, $routeName, $command, $callback) {
-		$this->customRoutes[$method][$routeName][$command]=$callback;
+	function addRouteCommand($routeCommand) {
+		$routes = $this->getAvailableRoutes();
+		if(isset($routes[$routeCommand->routeName])) {
+			$this->customRoutes[$routeCommand->method][$routeCommand->routeName][$routeCommand->routeCommand]=$routeCommand->callback;
+			$route = $routes[$routeCommand->routeName];
+			$route->routeCommands[$command]=$routeCommand;
+		}
 	}
 	
 	function checkClientRestriction() {
@@ -363,8 +368,9 @@ class ResterController {
 	/**
 	* Search the tables of the DB and configures the routes
 	*/
-	function getAvailableRoutes() {	
-		$this->routes = $this->dbController->getRoutes();
+	function getAvailableRoutes() {
+		if(!isset($this->routes) || count($this->routes) === 0)
+			$this->routes = $this->dbController->getRoutes();
 		return $this->routes;
 	}
 	

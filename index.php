@@ -5,6 +5,7 @@ require_once(__DIR__.'/include/ArrestDB.php');
 require_once(__DIR__.'/include/ApiResponse.php');
 require_once(__DIR__.'/include/SwaggerHelper.php');
 require_once(__DIR__.'/include/ResterController.php');
+require_once(__DIR__.'/include/model/RouteCommand.php');
 
 /**
 * The MIT License
@@ -33,9 +34,8 @@ else if (array_key_exists('HTTP_X_HTTP_METHOD_OVERRIDE', $_SERVER) === true)
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
-$resterController->addCustomRoute("GET", "usuarios", "login", function($params = NULL) {
 
-	
+$loginCommand = new RouteCommand("GET", "usuarios", "login", function($params = NULL) {
 	global $resterController;
 	
 	$filter["login"]=$params["login"];
@@ -44,7 +44,9 @@ $resterController->addCustomRoute("GET", "usuarios", "login", function($params =
 	$result = $resterController->getObjectsFromRoute("usuarios", $filter);
 
 	$resterController->showResult($result);
-});
+}, array("login", "password"), "Method to login users");
+
+$resterController->addRouteCommand($loginCommand);
  
 //Do the work
 $resterController->processRequest($requestMethod);

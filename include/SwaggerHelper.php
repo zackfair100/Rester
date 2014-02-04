@@ -24,6 +24,15 @@ class SwaggerHelper {
 		
 		$apis = array($apiCREATE, $apiID, $apiLIST);
 		
+		foreach($route->routeCommands as $command) {
+		
+		
+		
+			$apiCommand["path"] = "/".$route->routeName."/".$command->routeCommand;
+			$apiCommand["operations"][]=SwaggerHelper::createOperation($command->method, $route, SwaggerHelper::getParametersFromCommand($command), $route->routeName);
+			$apis[] = $apiCommand;
+		}
+		
 		$result = array
 		(
 			'apiVersion' => API_VERSION,
@@ -47,6 +56,22 @@ class SwaggerHelper {
 		$api["operations"] = $operations;
 	}
 	
+	public static function getParametersFromCommand($command) {
+
+		if(isset($command->parameters) && count($command->parameters) > 0) {
+			foreach($command->parameters as $p) {
+				$parameters[] = array('name' => $p,
+									'type' => 'string',
+									'paramType' => 'form',
+									//'required' => ($noRequired) ? false : $field->isRequired,
+									'description' => $p." parameter");
+			}
+		
+			return $parameters;
+		}
+		return NULL;
+	}
+	
 	public static function getParametersFromRoute($route, $routeMethod, $routeAction = NULL) {
 	
 		//Disable of show required fields
@@ -57,8 +82,6 @@ class SwaggerHelper {
 		$idAsParameter = false;
 		
 		$parameters = array();
-		
-		
 		
 		//Logic
 		switch($routeMethod) {
@@ -86,7 +109,6 @@ class SwaggerHelper {
 				}
 			break;
 		}
-		
 		
 		return $parameters;
 	}
@@ -190,7 +212,6 @@ class SwaggerHelper {
 			
 		}
 		
-		//var_dump($models);
 		
 		return $models;
 	}
