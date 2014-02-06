@@ -7,13 +7,9 @@ require_once(__DIR__.'/include/SwaggerHelper.php');
 require_once(__DIR__.'/include/ResterController.php');
 require_once(__DIR__.'/include/model/RouteCommand.php');
 
-/**
-* The MIT License
-* http://creativecommons.org/licenses/MIT/
-*
-* ArrestDB 1.7.1 (github.com/alixaxel/ArrestDB/)
-* Copyright (c) 2014 Alix Axel <alix.axel@gmail.com>
-**/
+//TODO; Make this smarter
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE');
 
 if (strcmp(PHP_SAPI, 'cli') === 0)
 {
