@@ -32,11 +32,11 @@ class ResterController {
 				$this->showRoutes();
 			}
 			
-			if(isset($routeName) && !isset($routePath)) {
-				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routeName], $this->getAvailableRoutes()));
+			if(isset($routeName) && $routeName == "api-doc" && isset($routePath)) {
+				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routePath[0]], $this->getAvailableRoutes()));
 			}
 		
-			if(count($routePath) == 1) {
+			if(count($routePath) >= 1) {
 				$command = $routePath[0];
 				
 				if(isset($this->customRoutes["GET"][$routeName][$command])) {
@@ -46,6 +46,9 @@ class ResterController {
 					$result = array_shift($this->getObjectByID($routeName, $command));
 					$this->showResult($result);
 				}								
+			} else {
+				$result = $this->getObjectsFromRoute($routeName);
+				$this->showResult($result);
 			}
 		});
 		
@@ -371,6 +374,8 @@ class ResterController {
 			$this->showError(204);
 		}
 		
+		$currentRoute = $this->getAvailableRoutes()[$routeName];
+		
 		if(is_array($newData) === true) {
 			$data = array();
 
@@ -380,12 +385,12 @@ class ResterController {
 
 			$query = array
 			(
-				sprintf('UPDATE "%s" SET %s WHERE "%s" = ?', $routeName, implode(', ', $newData), 'id'),
+				sprintf('UPDATE `%s` SET %s WHERE `%s` = '.$newData[$currentRoute->primaryKey->fieldName], $routeName, implode(',', $data), $currentRoute->primaryKey->fieldName),
 			);
 
 			$query = sprintf('%s;', implode(' ', $query));
 			
-			$result = ArrestDB::Query($query, $newData);
+			$result = $this->dbController->Query($query, $newData);
 			
 			$this->showResult($result);
 		}
@@ -401,12 +406,11 @@ class ResterController {
 	}
 	
 	function showResult($result) {
-		error_log("SHOW RESULT");
 		if ($result === false || count($result) == 0) {
 			$this->showError(404);
 		} else if (empty($result) === true) {
 			$this->showError(204);
-		} else if($result === true) {
+		} else if($result === true || (is_int($result) && $result >= 1) ) {
 			$this->doResponse(ApiResponse::successResponse());
 		} else {
 			if(is_array($result) && count($result) == 1)

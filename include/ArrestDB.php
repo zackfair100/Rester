@@ -41,6 +41,9 @@ class ArrestDB
 		{
 			if (isset($this::$db, $query) === true)
 			{
+			
+				error_log("QUERY: ".$query);
+			
 				if (strncasecmp($this::$db->getAttribute(\PDO::ATTR_DRIVER_NAME), 'mysql', 5) === 0)
 				{
 					$query = strtr($query, '"', '`');
@@ -50,14 +53,16 @@ class ArrestDB
 				{
 					$result[$hash] = $this::$db->prepare($query);
 				}
-
+				
 				$data = array_slice(func_get_args(), 1);
+				
+				
 				
 				if (count($data, COUNT_RECURSIVE) > count($data))
 				{
 					$data = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveArrayIterator($data)), false);
 				}
-						
+								
 				if ($result[$hash]->execute($data) === true)
 				{
 					$sequence = null;
@@ -66,8 +71,6 @@ class ArrestDB
 					{
 						$sequence = sprintf('%s_id_seq', trim($sequence, '"'));
 					}
-					
-					error_log("QUERY: ".$query);
 					
 					switch (strtoupper(strstr($query, ' ', true)))
 					{
@@ -78,7 +81,6 @@ class ArrestDB
 						case 'UPDATE':
 						case 'DELETE':
 							return $result[$hash]->rowCount();
-
 						case 'SELECT':
 						case 'EXPLAIN':
 						case 'PRAGMA':
