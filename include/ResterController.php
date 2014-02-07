@@ -48,7 +48,8 @@ class ResterController {
 				}								
 			} else {
 				$result = $this->getObjectsFromRoute($routeName);
-				$this->showResult($result);
+				//show result forcing array result
+				$this->showResult($result, true);
 			}
 		});
 		
@@ -405,7 +406,7 @@ class ResterController {
 		exit(ArrestDB::Reply($result));
 	}
 	
-	function showResult($result) {
+	function showResult($result, $forceArray = false) {
 		if ($result === false || count($result) == 0) {
 			$this->showError(404);
 		} else if (empty($result) === true) {
@@ -413,7 +414,7 @@ class ResterController {
 		} else if($result === true || (is_int($result) && $result >= 1) ) {
 			$this->doResponse(ApiResponse::successResponse());
 		} else {
-			if(is_array($result) && count($result) == 1)
+			if(is_array($result) && count($result) == 1 && !$forceArray)
 				$this->doResponse($result[0]);
 			else
 				$this->doResponse($result);
