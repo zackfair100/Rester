@@ -47,7 +47,10 @@ class ResterController {
 					$this->showResult($result);
 				}								
 			} else {
-				$result = $this->getObjectsFromRoute($routeName);
+				if(isset($parameters))
+					$result = $this->getObjectsFromRoute($routeName, $parameters);
+				else
+					$result = $this->getObjectsFromRoute($routeName);
 				//show result forcing array result
 				$this->showResult($result, true);
 			}
@@ -309,12 +312,14 @@ class ResterController {
 			sprintf('WHERE "%s" %s ?', $id, (ctype_digit($data) === true) ? '=' : 'LIKE'),
 		);*/
 		$i = 0;
-		foreach($filters as $filterField => $filterValue) {
-			if($i == 0)
-				$query[] = sprintf("WHERE %s = '%s'",  $filterField, $filterValue);
-			else
-				$query[] = sprintf("AND %s = '%s'",  $filterField, $filterValue);
-			$i++;
+		if(isset($filters)) {
+			foreach($filters as $filterField => $filterValue) {
+				if($i == 0)
+					$query[] = sprintf("WHERE %s = '%s'",  $filterField, $filterValue);
+				else
+					$query[] = sprintf("AND %s = '%s'",  $filterField, $filterValue);
+				$i++;
+			}
 		}
 		
 		if (isset($order['by']) === true)
