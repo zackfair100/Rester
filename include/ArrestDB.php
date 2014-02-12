@@ -4,6 +4,8 @@ include_once("config.php");
 require_once(__DIR__.'/model/Route.php');
 require_once(__DIR__.'/model/RouteField.php');
 require_once(__DIR__.'/model/RouteRelation.php');
+require_once(__DIR__.'/ApiDBDriver.php');
+require_once(__DIR__.'/ApiCacheManager.php');
 
 class ArrestDB
 {
@@ -92,7 +94,6 @@ class ArrestDB
 					}
 					return true;
 				}
-				echo $query. "KO";
 
 				return false;
 			}
@@ -322,8 +323,13 @@ class ArrestDB
 	}
 	
 	function getRoutes() {
-		$routes = array();
-		
+		$routes = ApiCacheManager::getValueFromCache(ROUTE_CACHE_KEY);
+		if($routes == NULL)
+			$routes = $this->getRoutesFromDB();
+		return $routes;
+	}
+	
+	function getRoutesFromDB() {
 		$relations = $this->getRelations();
 		
 		$result = ArrestDB::Query("SHOW TABLES");
@@ -346,7 +352,9 @@ class ArrestDB
 				$routes[$route->routeName]=$route;
 			}
 		}
-
+		
+		ApiCacheManager::saveValueToCache(ROUTE_CACHE_KEY,$routes);
+		
 		return $routes;
 	}
 	

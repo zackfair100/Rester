@@ -44,6 +44,8 @@ $loginCommand = new RouteCommand("POST", "usuarios", "login", function($params =
 
 $resterController->addRouteCommand($loginCommand);
  
+ 
+
 //Do the work
 $resterController->processRequest($requestMethod);
 

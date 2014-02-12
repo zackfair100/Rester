@@ -447,7 +447,10 @@ class ResterController {
 	
 	public function getCurrentRoute() {
 		$routePath = array_filter(explode("/", $this->getRoot()));
-		return array_values($routePath)[0];
+		if(count($routePath) > 0)
+			return array_values($routePath)[0];
+		else
+			return false;
 	}
 	
 	public function getCurrentPath() {
