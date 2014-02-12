@@ -26,7 +26,6 @@ class ResterController {
 		* Else we process the parameters, checks if we have a command or an ID to return the results 
 		*/
 		$this->addRequestProcessor("GET", function($routeName = NULL, $routePath = NULL, $parameters = NULL) {
-			error_log("PROCESSING GET ONE ".$routeName." - ".$routePath." - ".$parameters);
 			//If we ask for the root, give the docs
 			if($routeName == NULL) {
 				$this->showRoutes();
@@ -315,9 +314,10 @@ class ResterController {
 		if(isset($filters)) {
 			foreach($filters as $filterField => $filterValue) {
 				if($i == 0)
-					$query[] = sprintf("WHERE %s = '%s'",  $filterField, $filterValue);
+					$query[] = "WHERE `".$filterField."` LIKE '%".$filterValue."%'";
+					//$query[] = sprintf("WHERE %s LIKE '%s'",  $filterField, $filterValue);
 				else
-					$query[] = sprintf("AND %s = '%s'",  $filterField, $filterValue);
+					$query[] = "AND `".$filterField."` LIKE '%".$filterValue."%'";
 				$i++;
 			}
 		}
