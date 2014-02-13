@@ -349,6 +349,8 @@ class ArrestDB
 				else
 					$route->routeFields = $this->getRouteFields($route);
 				
+				error_log("PRIMARY KEY: ".$route->routeName." => ".$route->primaryKey->fieldName);
+				
 				$routes[$route->routeName]=$route;
 			}
 		}

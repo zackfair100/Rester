@@ -92,13 +92,15 @@ class SwaggerHelper {
 			
 				if($routeAction == "id") {
 					$parameters[] = SwaggerHelper::getIdParameter($route, true, false);
+					$parameters = array_merge($parameters, SwaggerHelper::getParametersFromModel($route, false));
 				} else {
-					$parameters[] = SwaggerHelper::getIdParameter($route, true, true);
+					//$parameters[] = SwaggerHelper::getIdParameter($route, true, true);
+					$parameters[] = SwaggerHelper::getBodyParameterFromModel($route);
 				}
 				
-				$parameters = array_merge($parameters, SwaggerHelper::getParametersFromModel($route, false));
+				//
 
-				//$parameters[] = SwaggerHelper::getBodyParameterFromModel($route);
+				
 			break;
 			case "POST":
 				
@@ -147,7 +149,7 @@ class SwaggerHelper {
 					'paramType' => 'body',
 					'required' => true,
 					'type' => $route->routeName,
-					'description' => $route->routeName." created object");
+					'description' => $route->routeName." json representation. It can be an array to update multiple objects.");
 	}
 	
 	public static function createOperation($method, $route, $parameters = null, $operationType) {

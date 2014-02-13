@@ -1,6 +1,7 @@
 <?php
 
 require_once('config.php');
+require_once(__DIR__.'/ResterUtils.php');
 
 
 class ResterController {
@@ -105,41 +106,46 @@ class ResterController {
 				$this->showError(400);
 			}
 			
-			
-			
 			$input = file_get_contents('php://input');
 			
-			parse_str($input, $putData);
-			
-			
-			
-			
-			if(empty($putData)) {
+			if(empty($input)) {
 				error_log("Empty PUT request");
 				$this->showError(400);
 			}
 			
-			if(!isset($routePath) || count($routePath) < 1) {
+			if(!isset($routePath) || count($routePath) < 1) { //no id in URL, we expect json body
 			
+				$putData = json_decode($input, true);
+				
 				$route = $this->getAvailableRoutes()[$routeName];
-				
-				$pk = $route->primaryKey;
-				
-				if(!isset($putData[$route->primaryKey->fieldName])) {
-					error_log("No PRIMARY KEY FIELD");
-					var_dump($putData);
-					echo $route->primaryKey->fieldName;
-					$this->showError(400);
-				} 
-				$this->updateObjectFromRoute($routeName, $putData[$route->primaryKey->fieldName], $putData);
-			} else {
-				$this->updateObjectFromRoute($routeName, $routePath[0], $putData);
+				if(is_array($putData) && ResterUtils::isIndexed($putData) && count($putData) > 0) { //iterate on elements and try to update
+					error_log("UPDATING MULTIPLE OBJECTS");
+					foreach($putData as $updateObject) {
+						error_log("UPDATING OBJECT ".$routeName." ID: ".$updateObject["id"]);
+						if(isset($updateObject[$route->primaryKey->fieldName])) {
+							$result = $this->updateObjectFromRoute($routeName, $updateObject[$route->primaryKey->fieldName], $updateObject);
+						}
+					}
+					error_log("SUCCESS");
+					$this->doResponse(ApiResponse::successResponse());
+				} else {
+					error_log("UPDATING SINGLE OBJECT");
+					if(!isset($putData[$route->primaryKey->fieldName])) {
+						error_log("No PRIMARY KEY FIELD ".$input);
+						echo $route->primaryKey->fieldName;
+						$this->showError(400);
+					}	 
+					$result = $this->updateObjectFromRoute($routeName, $putData[$route->primaryKey->fieldName], $putData);
+					$this->showResult($result);
+				}
+			} else { //id from URL
+				parse_str($input, $putData);
+				$result = $this->updateObjectFromRoute($routeName, $routePath[0], $putData);
+				$this->showResult($result);
 			}
-			
-			$result = $this->deleteObjectFromRoute($routeName, $routePath[0]);
-			
+					
 			if($result > 0) {
-				$this->showResult(ApiResponse::successResponse());
+				$this->doResponse(ApiResponse::successResponse());
 			} else {
 				$this->showResult($result);
 			}
@@ -285,31 +291,20 @@ class ResterController {
 		}
 
 		return array_shift($this->getObjectByID($routeName,$result));
-		/*
-		
-		if ($result === false) {
-			$this->showError(409);
-		} else {
-			$result = array
-			(
-				'success' => array
-				(
-					'code' => 201,
-					'status' => 'Created',
-				),
-			);
-		}
-		
-		return $result;*/
 	}
 	
-	function getObjectsFromRoute($routeName, $filters = NULL, $order = NULL) {
+	function getObjectsFromRoute($routeName, $filters = NULL) {
+	
+		if(isset($filters['order'])) {
+			$order['by']=$filters['order'];
+			unset($filters['order']);
+		}
+		if(isset($filters['orderType'])) {
+			$order['order']=$filters['orderType'];
+			unset($filters['orderType']);
+		}	
 		$query = array(sprintf('SELECT * FROM "%s"', $routeName));
-		
-		/*$query = array (
-			sprintf('SELECT * FROM "%s"', $routeName),
-			sprintf('WHERE "%s" %s ?', $id, (ctype_digit($data) === true) ? '=' : 'LIKE'),
-		);*/
+
 		$i = 0;
 		if(isset($filters)) {
 			foreach($filters as $filterField => $filterValue) {
@@ -397,8 +392,7 @@ class ResterController {
 			$query = sprintf('%s;', implode(' ', $query));
 			
 			$result = $this->dbController->Query($query, $newData);
-			
-			$this->showResult($result);
+			return $result;
 		}
 	}
 	
@@ -461,8 +455,7 @@ class ResterController {
 	* Search the tables of the DB and configures the routes
 	*/
 	function getAvailableRoutes() {
-		if(!isset($this->routes) || count($this->routes) === 0)
-			$this->routes = $this->dbController->getRoutes();
+		$this->routes = $this->dbController->getRoutes();
 		return $this->routes;
 	}
 	

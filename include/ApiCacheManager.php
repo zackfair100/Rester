@@ -28,6 +28,14 @@ class ApiCacheManager {
 
 	}
 	
+	static function clear() {
+		if(extension_loaded('apc') && ini_get('apc.enabled')) {
+			apc_clear_cache();
+			apc_clear_cache('user');
+			error_log("Cleared cache");
+		}
+	}
+	
 }
 
 ?>
