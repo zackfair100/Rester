@@ -47,9 +47,9 @@ class ResterController {
 					$this->showResult($result);
 				}								
 			} else {
-				if(isset($parameters))
+				if(isset($parameters)){
 					$result = $this->getObjectsFromRoute($routeName, $parameters);
-				else
+				} else
 					$result = $this->getObjectsFromRoute($routeName);
 				//show result forcing array result
 				$this->showResult($result, true);
@@ -307,12 +307,53 @@ class ResterController {
 
 		$i = 0;
 		if(isset($filters)) {
+			
 			foreach($filters as $filterField => $filterValue) {
+			
+			
+				if($i == 0) $q = "WHERE"; else $q = "AND";
+				
+				$q .= " `".$filterField."` ";
+						
+				if(is_array($filterValue)) {
+					$queryType = array_keys($filterValue)[0];
+					$queryValue =$filterValue[$queryType];	
+					switch($queryType) {
+						case "in":
+							$q.="LIKE '%".$queryValue."%'";
+						break;
+						case "gt":
+							$q.="> ".$queryValue;
+						break;
+						case "lt":
+							$q.="< ".$queryValue;
+						break;
+						case "ge":
+							$q.=">= ".$queryValue;
+						break;
+						case "le":
+							$q.="<= ".$queryValue;
+						break;
+						default:
+							$q.="= '".$queryValue."'";
+						break;
+					}
+				} else {
+					$q.="= '".$filterValue."'";
+				}
+				
+			
+				
+				
+				$query[] = $q;
+				
+	
+				/*
 				if($i == 0)
 					$query[] = "WHERE `".$filterField."` LIKE '%".$filterValue."%'";
 					//$query[] = sprintf("WHERE %s LIKE '%s'",  $filterField, $filterValue);
 				else
-					$query[] = "AND `".$filterField."` LIKE '%".$filterValue."%'";
+					$query[] = "AND `".$filterField."` LIKE '%".$filterValue."%'";*/
 				$i++;
 			}
 		}
