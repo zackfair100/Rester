@@ -10,6 +10,7 @@ class RouteField {
 	var $description;
 	var $isRelation = false;
 	var $relation;
+	var $isFile = false;
 	
 	static function getTypeFromMySQL($mysqlType) {
 		$type = "string";
@@ -29,6 +30,11 @@ class RouteField {
 		//error_log("SET RELATION ".$this->fieldName." ".$routeRelation->relationName." - type: ".$routeRelation->route);
 	}
 	
+	function getRelationFieldName() {
+		if($this->isRelation)
+			return $this->relation->relationName."_".$this->relation->field;
+		return NULL;
+	}
 }
 
 ?>

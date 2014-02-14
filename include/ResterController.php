@@ -2,6 +2,7 @@
 
 require_once('config.php');
 require_once(__DIR__.'/ResterUtils.php');
+require_once(__DIR__.'/model/RouteFileProcessor.php');
 
 
 class ResterController {
@@ -33,6 +34,7 @@ class ResterController {
 			}
 			
 			if(isset($routeName) && $routeName == "api-doc" && isset($routePath)) {
+				error_log("Returning apidoc");
 				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routePath[0]], $this->getAvailableRoutes()));
 			}
 		
@@ -48,9 +50,9 @@ class ResterController {
 				}								
 			} else {
 				if(isset($parameters)){
-					$result = $this->getObjectsFromRoute($routeName, $parameters);
+					$result = $this->getObjectsFromRoute($this->routes[$routeName], $parameters);
 				} else
-					$result = $this->getObjectsFromRoute($routeName);
+					$result = $this->getObjectsFromRoute($this->routes[$routeName]);
 				//show result forcing array result
 				$this->showResult($result, true);
 			}
@@ -66,6 +68,7 @@ class ResterController {
 			if(count($routePath) == 1) {
 				$command = $routePath[0];
 				if(isset($this->customRoutes["POST"][$routeName][$command])) {
+					error_log("Executing custom command");
 					$callback = $this->customRoutes["POST"][$routeName][$command];
 					call_user_func($callback, $parameters);
 					return;
@@ -102,6 +105,7 @@ class ResterController {
 		
 		$this->addRequestProcessor("PUT", function($routeName, $routePath) {
 		
+			error_log("PROCESSING PUT");
 			if(!isset($routeName)) {
 				$this->showError(400);
 			}
@@ -116,7 +120,6 @@ class ResterController {
 			if(!isset($routePath) || count($routePath) < 1) { //no id in URL, we expect json body
 			
 				$putData = json_decode($input, true);
-				
 				$route = $this->getAvailableRoutes()[$routeName];
 				if(is_array($putData) && ResterUtils::isIndexed($putData) && count($putData) > 0) { //iterate on elements and try to update
 					error_log("UPDATING MULTIPLE OBJECTS");
@@ -151,6 +154,14 @@ class ResterController {
 			}
 		
 		});
+	}
+	
+	function addFileProcessor($routeName, $fieldName, $acceptedTypes = NULL) {
+		if(isset($this->getAvailableRoutes()[$routeName])) {
+			$this->getAvailableRoutes()[$routeName]->addFileProcessor($fieldName);	
+		} else
+			die("Can't add file processor ".$fieldName." to route ".$routeName);
+		
 	}
 	
 	function addRouteCommand($routeCommand) {
@@ -233,18 +244,23 @@ class ResterController {
 		}*/
 	}
 	
-		
+	
+	
 	/*************************************/
 	/* OBJECT MANAGEMENT METHODS
 	/*************************************/	
 
 	function insertObject($routeName, $objectData) {
+	
+		$route = $this->getAvailableRoutes()[$routeName];
+	
 		$queries = array();
 
 		if (count($objectData) == count($objectData, COUNT_RECURSIVE))
 		{
 			$objectData = array($objectData);
 		}
+		
 		
 		foreach ($objectData as $row)
 		{
@@ -289,11 +305,29 @@ class ResterController {
 		} else if (is_null($query = array_shift($queries)) !== true) {
 			$result = $this->dbController->Query($query[0], $query[1]);
 		}
+		
+	
+		//Process files
+		if(count($_FILES) > 0) { //we got files... process them
+			foreach($_FILES as $fileField => $f) {
+				if($route->getFileProcessor($fileField) != NULL) { //We have to process
+					$processor = $route->getFileProcessor($fileField);
+					$upload = $processor->saveUploadFile($result, $route->routeName, $f);
+					$newData = array ($route->primaryKey->fieldName => $result, $fileField => $upload["destination"]);
+					$this->updateObjectFromRoute($route->routeName, $result, $newData);
+				}
+			}
+		}
+		
 
 		return array_shift($this->getObjectByID($routeName,$result));
 	}
 	
-	function getObjectsFromRoute($routeName, $filters = NULL) {
+	function getObjectsFromRouteName($routeName, $filters = NULL) {
+		return $this->getObjectsFromRoute($this->getAvailableRoutes()[$routeName], $filters);
+	}
+	
+	function getObjectsFromRoute($route, $filters = NULL) {
 	
 		if(isset($filters['order'])) {
 			$order['by']=$filters['order'];
@@ -303,17 +337,46 @@ class ResterController {
 			$order['order']=$filters['orderType'];
 			unset($filters['orderType']);
 		}	
-		$query = array(sprintf('SELECT * FROM "%s"', $routeName));
+		
+		if(count($route->getRelationFields()) > 0) {
+		
+			foreach($route->getRelationFields() as $rf) {
+				$destinationRoute = $this->getAvailableRoutes()[$rf->relation->destinationRoute];
+				
+				foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
+					$relationFieldNames[] = $rf->relation->relationName.".".$fieldKey." as ".$rName;
+				}
+			}
+		
+		}
+		
+		$query[] = "SELECT ";
+		
+		$query[] = implode(",", $route->getFieldNames(FALSE, TRUE));
+		
+		if(isset($relationFieldNames)) {
+			$query[] = ",";
+			$query[] = implode(",",$relationFieldNames);
+		}
+		
+		$query[] = " FROM `".$route->routeName."` as ".$route->routeName;
+		
+		//$query = array(sprintf('SELECT * FROM "%s"', $route->routeName));
+		
+		if(count($route->getRelationFields()) > 0) {
+			foreach($route->getRelationFields() as $relationField) {
+				$query[] = ",".$relationField->relation->destinationRoute." as ".$relationField->relation->relationName;
+			}
+		}
 
 		$i = 0;
 		if(isset($filters)) {
 			
 			foreach($filters as $filterField => $filterValue) {
 			
-			
 				if($i == 0) $q = "WHERE"; else $q = "AND";
 				
-				$q .= " `".$filterField."` ";
+				$q .= " ".$route->routeName.".".$filterField." ";
 						
 				if(is_array($filterValue)) {
 					$queryType = array_keys($filterValue)[0];
@@ -341,21 +404,29 @@ class ResterController {
 				} else {
 					$q.="= '".$filterValue."'";
 				}
-				
-			
-				
-				
+								
 				$query[] = $q;
 				
-	
-				/*
-				if($i == 0)
-					$query[] = "WHERE `".$filterField."` LIKE '%".$filterValue."%'";
-					//$query[] = sprintf("WHERE %s LIKE '%s'",  $filterField, $filterValue);
-				else
-					$query[] = "AND `".$filterField."` LIKE '%".$filterValue."%'";*/
 				$i++;
 			}
+		}
+		
+		//JOINS
+		if(count($route->getRelationFields()) > 0) {
+			if(!isset($filters) || count($filters) == 0) {
+				$query[] = " WHERE ";
+			} else {
+				$query[] = " AND ";
+			}
+			$query [] = "(";
+			$i = 0;
+			foreach($route->getRelationFields() as $relationField) {
+				if($i > 0)
+					$query[] = "AND";
+				$query[] = " ".$route->routeName.".".$relationField->relation->field." = ".$relationField->relation->relationName.".".$relationField->relation->destinationField." ";
+				$i++;
+			}
+			$query [] = ")";
 		}
 		
 		if (isset($order['by']) === true)
@@ -377,24 +448,62 @@ class ResterController {
 				$query[] = sprintf('OFFSET %u', $filters['offset']);
 			}
 		} else { //Default limit
-			$query[] = "LIMIT 200";
+			$query[] = "LIMIT 1000";
 		}
 		
 		$query = sprintf('%s;', implode(' ', $query));
 		
 		$result = $this->dbController->Query($query);
 		
-		return $result;
+		foreach($result as $row) {
+			$mainObject = ResterUtils::cleanArray($row, $route->getFieldNames(FALSE, FALSE));
+			
+			/*
+			if(count($route->fileProcessors) > 0) {
+				foreach(array_keys($mainObject) as $fieldName) {
+					if($route->getFileProcessor($fieldName) != NULL) {
+						$mainObject[$fieldName]=$this->getRoot()."/".$mainObject[$fieldName];
+					}
+				}	
+			}*/
+	
+			if(count($route->getRelationFields()) > 0) {
+				foreach($route->getRelationFields() as $rf) {
+					
+					$destinationRoute = $this->getAvailableRoutes()[$rf->relation->destinationRoute];
+									
+					$relationObject = array();
+					foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
+						$relationObject[$fieldKey]=$row[$rName];
+					}
+					
+					$mainObject[$rf->relation->destinationRoute]=$relationObject;
+				}
+			}
+			
+			$response[]=$mainObject;
+		}
+		
+		return $response;
 	}
 	
+	
+	
 	function getObjectByID($routeName, $ID) {
+		
+		/*
 		$query = array(sprintf('SELECT * FROM "%s"', $routeName));
 		
 		$query[] = sprintf('WHERE "%s" = ? LIMIT 1', 'id');
 	
 		$query = sprintf('%s;', implode(' ', $query));
 		
-		$result = $this->dbController->Query($query, $ID);
+		$result = $this->dbController->Query($query, $ID);*/
+		$route = $this->getAvailableRoutes()[$routeName];
+		
+		$filter = array($route->primaryKey->fieldName => $ID);
+			
+		$result = $this->getObjectsFromRoute($route, $filter);
 		
 		return $result;	
 	}
@@ -412,6 +521,7 @@ class ResterController {
 	}
 	
 	function updateObjectFromRoute($routeName, $objectID, $newData) {
+		error_log("UPDATING OBJECT");
 		if (empty($newData) === true) {
 			$this->showError(204);
 		}
@@ -427,7 +537,7 @@ class ResterController {
 
 			$query = array
 			(
-				sprintf('UPDATE `%s` SET %s WHERE `%s` = '.$newData[$currentRoute->primaryKey->fieldName], $routeName, implode(',', $data), $currentRoute->primaryKey->fieldName),
+				sprintf('UPDATE `%s` SET %s WHERE `%s` = '.$objectID, $routeName, implode(',', $data), $currentRoute->primaryKey->fieldName),
 			);
 
 			$query = sprintf('%s;', implode(' ', $query));
@@ -496,7 +606,8 @@ class ResterController {
 	* Search the tables of the DB and configures the routes
 	*/
 	function getAvailableRoutes() {
-		$this->routes = $this->dbController->getRoutes();
+		if($this->routes == NULL)
+			$this->routes = $this->dbController->getRoutes();
 		return $this->routes;
 	}
 	

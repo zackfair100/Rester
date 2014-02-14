@@ -19,7 +19,7 @@ if(isset($_GET["cacheClear"])) {
 
 if (strcmp(PHP_SAPI, 'cli') === 0)
 {
-	exit('ArrestDB should not be run from CLI.' . PHP_EOL);
+	exit('Rester should not be run from CLI.' . PHP_EOL);
 }
 
 $resterController = new ResterController();
@@ -36,19 +36,51 @@ else if (array_key_exists('HTTP_X_HTTP_METHOD_OVERRIDE', $_SERVER) === true)
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
+$resterController->addFileProcessor("imagenes_poi", "imagen");
 
 $loginCommand = new RouteCommand("POST", "usuarios", "login", function($params = NULL) {
+	error_log("Processing login");
 	global $resterController;
 	
 	$filter["login"]=$params["login"];
 	$filter["password"]=md5($params["password"]);
 	
-	$result = $resterController->getObjectsFromRoute("usuarios", $filter);
+	$result = $resterController->getObjectsFromRouteName("usuarios", $filter);
 
 	$resterController->showResult($result);
 }, array("login", "password"), "Method to login users");
 
 $resterController->addRouteCommand($loginCommand);
+
+$poisRouteCommand = new RouteCommand("GET", "ruta", "getRutaWithPois", function($params = NULL) {
+	error_log("Processing ruta pois");
+	
+	global $resterController;
+	
+	$result = $resterController->getObjectsFromRouteName("ruta", $params);
+	
+	$resultWithChilds = array();
+	
+	foreach($result as $row) {
+		$filter = array("ruta" => $row["id"]);
+	
+		$childs = $resterController->getObjectsFromRouteName("poi_ruta", $filter);
+		
+		$pois = array();
+		
+		foreach($childs as $c) {
+			$pois[] = $c["poi"];
+		}
+		
+		$row["pois"]=$pois;
+		$resultWithChilds[]=$row;
+	}
+
+	$resterController->showResult($resultWithChilds);
+	
+});
+
+$resterController->addRouteCommand($poisRouteCommand);
  
  
 

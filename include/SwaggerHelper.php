@@ -132,11 +132,20 @@ class SwaggerHelper {
 	
 			if($field->fieldName != "id") {
 			
-				$parameters[] = array('name' => (!$field->isRelation) ? $field->fieldName : $field->relation->field,
+				$p = array('name' => (!$field->isRelation) ? $field->fieldName : $field->relation->field,
 									'type' => $field->fieldType,
 									'paramType' => 'form',
 									'required' => ($noRequired) ? false : $field->isRequired,
 									'description' => $field->description);
+			
+				if($field->isFile) {
+					$p["paramType"] = "body";
+					unset($p["type"]);
+					$p["dataType"] = "file";
+					$p["consumes"]="multipart/form-data";
+				}
+			
+				$parameters[] = $p;
 			}
 			
 		}
