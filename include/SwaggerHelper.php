@@ -86,6 +86,9 @@ class SwaggerHelper {
 			case "GET":
 				if($routeAction == "id") {
 					$parameters[] = SwaggerHelper::getIdParameter($route, true);
+				} else {
+					$parameters[] = SwaggerHelper::getParametersFromModel($route, true);
+					//var_dump($parameters);
 				}
 			break;
 			case "PUT":
@@ -103,7 +106,6 @@ class SwaggerHelper {
 				
 			break;
 			case "POST":
-				
 				//$parameters[] = SwaggerHelper::getBodyParameterFromModel($route);
 				$parameters = array_merge($parameters, SwaggerHelper::getParametersFromModel($route, false));
 			break;
@@ -133,7 +135,7 @@ class SwaggerHelper {
 			if($field->fieldName != "id") {
 			
 				$p = array('name' => (!$field->isRelation) ? $field->fieldName : $field->relation->field,
-									'type' => $field->fieldType,
+									'type' => ($field->fieldType) ? $field->fieldType : 'void',
 									'paramType' => 'form',
 									'required' => ($noRequired) ? false : $field->isRequired,
 									'description' => $field->description);

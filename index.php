@@ -76,7 +76,7 @@ $poisRouteCommand = new RouteCommand("GET", "ruta", "getRutaWithPois", function(
 		$resultWithChilds[]=$row;
 	}
 
-	$resterController->showResult($resultWithChilds);
+	$resterController->showResult($resultWithChilds, true);
 	
 });
 
