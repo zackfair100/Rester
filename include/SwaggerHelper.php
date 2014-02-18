@@ -87,7 +87,8 @@ class SwaggerHelper {
 				if($routeAction == "id") {
 					$parameters[] = SwaggerHelper::getIdParameter($route, true);
 				} else {
-					$parameters[] = SwaggerHelper::getParametersFromModel($route, true);
+					$parameters[] = SwaggerHelper::getIdParameter($route, false);
+					$parameters = array_merge($parameters, SwaggerHelper::getParametersFromModel($route, false));
 					//var_dump($parameters);
 				}
 			break;
@@ -136,6 +137,7 @@ class SwaggerHelper {
 			
 				$p = array('name' => (!$field->isRelation) ? $field->fieldName : $field->relation->field,
 									'type' => ($field->fieldType) ? $field->fieldType : 'void',
+									//'type' => 'string',
 									'paramType' => 'form',
 									'required' => ($noRequired) ? false : $field->isRequired,
 									'description' => $field->description);
@@ -167,8 +169,18 @@ class SwaggerHelper {
 	
 		switch($method) {
 			case "GET":
-				$notes = "Retrieve ".$route->routeName." objects";
-			break;
+				$notes = "Retrieve ".$route->routeName." objects<br /><br /><b>List of filters:</b><br /><br />";
+				foreach($parameters as $p) {
+				
+					$notes.=$route->routeName."/?".$p["name"]."[in]=XXXXX => Search XXXXX in field ".$p["name"]."<br />";
+					$notes.=$route->routeName."/?".$p["name"]."[gt]=XXXXX => Compare if ".$p["name"]." is greater than XXXXX<br />";
+					$notes.=$route->routeName."/?".$p["name"]."[ge]=XXXXX => Compare if ".$p["name"]." is greater or equal than XXXXX<br />";
+					$notes.=$route->routeName."/?".$p["name"]."[lt]=XXXXX => Compare if ".$p["name"]." is less than XXXXX<br />";
+					$notes.=$route->routeName."/?".$p["name"]."[le]=XXXXX => Compare if ".$p["name"]." is less or equal than XXXXX<br />";	
+					$notes.="<br />";
+					
+				}
+				break;
 			case "PUT":
 				if($operationType == "void") {
 					$notes = "Update ".$route->routeName." object";
