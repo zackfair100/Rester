@@ -199,6 +199,12 @@ class ArrestDB
 
 	public static function Reply($data)
 	{
+	
+		if(isset($data["error"])) {
+			error_log("HTTP/1.1 ".$data["error"]["code"]." ".$data["error"]["status"]);
+			header("HTTP/1.1 ".$data["error"]["code"]." ".$data["error"]["status"], true, $data["error"]["code"]);
+		}
+	
 		$bitmask = 0;
 		$options = array('UNESCAPED_SLASHES', 'UNESCAPED_UNICODE');
 
