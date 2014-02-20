@@ -37,6 +37,7 @@ else if (array_key_exists('HTTP_X_HTTP_METHOD_OVERRIDE', $_SERVER) === true)
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
 $resterController->addFileProcessor("imagenes_poi", "imagen");
+$resterController->addFileProcessor("tipologia", "icono");
 
 $loginCommand = new RouteCommand("POST", "usuarios", "login", function($params = NULL) {
 	error_log("Processing login");
