@@ -33,6 +33,9 @@ class Route {
 		foreach($this->getFieldNames(FALSE) as $fn) {
 			$relationFieldNames[$fn] = $relation->relationName."_".$fn;
 		}
+		foreach($this->getRelationFields() as $rf) {
+			$relationFieldNames[$rf->relation->field] = $rf->relation->relationName;
+		}
 		return $relationFieldNames;
 	}
 

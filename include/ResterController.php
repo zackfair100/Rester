@@ -21,6 +21,13 @@ class ResterController {
 		
 		//Internal processors
 		
+		$this->addRequestProcessor("OPTIONS", function($routeName = NULL, $routePath = NULL, $parameters = NULL) {
+			if(isset($routeName) && isset($routePath)) {
+				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routePath[0]], $this->getAvailableRoutes()));
+			}
+			$this->showResult("");
+		});
+		
 		/**
 		* This is the main GET processor
 		* If the request does not have a route, shows the doc for swagger
@@ -369,6 +376,7 @@ class ResterController {
 			$query[] = ",";
 			$query[] = implode(",",$relationFieldNames);
 		}
+
 		
 		$query[] = " FROM `".$route->routeName."` as ".$route->routeName;
 		
@@ -387,11 +395,16 @@ class ResterController {
 			
 				if($i == 0) $q = "WHERE"; else $q = "AND";
 				
-				$q .= " ".$route->routeName.".".$filterField." ";
+				$q .= " (".$route->routeName.".".$filterField." ";
 						
 				if(is_array($filterValue)) {
 					$queryType = array_keys($filterValue)[0];
 					$queryValue =$filterValue[$queryType];	
+					
+					$val = explode(",", $queryValue);
+					
+					
+					
 					switch($queryType) {
 						case "in":
 							$q.="LIKE '%".$queryValue."%'";
@@ -412,10 +425,22 @@ class ResterController {
 							$q.="= '".$queryValue."'";
 						break;
 					}
+					
+					
 				} else {
-					$q.="= '".$filterValue."'";
+	
+					$val = explode(",", $filterValue);
+	
+					$q.="= '".$val[0]."'";
+					
+					for($i = 1; $i<count($val); $i++) {
+						$q.=" OR ".$route->routeName.".".$filterField." = '".$val[$i]."'";	
+					}
+
 				}
-								
+				
+				$q.= ")";				
+				
 				$query[] = $q;
 				
 				$i++;
