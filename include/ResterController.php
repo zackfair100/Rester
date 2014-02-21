@@ -37,6 +37,9 @@ class ResterController {
 				error_log("Returning apidoc");
 				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routePath[0]], $this->getAvailableRoutes()));
 			}
+			
+			$this->checkRouteExists($routeName);
+			
 		
 			if(count($routePath) >= 1) {
 				$command = $routePath[0];
@@ -154,6 +157,14 @@ class ResterController {
 			}
 		
 		});
+	}
+	
+	function checkRouteExists($routeName) {
+		if(!isset($this->getAvailableRoutes()[$routeName])) {
+				$this->showError(404);
+				return false;
+		}
+		return true;
 	}
 	
 	function addFileProcessor($routeName, $fieldName, $acceptedTypes = NULL) {
