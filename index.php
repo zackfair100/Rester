@@ -83,6 +83,35 @@ $poisRouteCommand = new RouteCommand("GET", "ruta", "getRutaWithPois", function(
 $resterController->addRouteCommand($poisRouteCommand);
  
  
+ $routePoisCommand = new RouteCommand("GET", "poi", "getPoiWithRutas", function($params = NULL) {
+	error_log("Processing getPoiWithRutas");
+	
+	global $resterController;
+	
+	$result = $resterController->getObjectsFromRouteName("poi", $params);
+	
+	$resultWithChilds = array();
+	
+	foreach($result as $row) {
+		$filter = array("poi" => $row["id"]);
+	
+		$childs = $resterController->getObjectsFromRouteName("poi_ruta", $filter);
+		
+		$rutas = array();
+		
+		foreach($childs as $c) {
+			$rutas[] = $c["ruta"];
+		}
+		
+		$row["rutas"]=$rutas;
+		$resultWithChilds[]=$row;
+	}
+
+	$resterController->showResult($resultWithChilds, true);
+	
+});
+
+$resterController->addRouteCommand($routePoisCommand);
 
 //Do the work
 $resterController->processRequest($requestMethod);
