@@ -25,6 +25,8 @@ if (strcmp(PHP_SAPI, 'cli') === 0)
 	exit('Rester should not be run from CLI.' . PHP_EOL);
 }
 
+$resterController = new ResterController();
+
 if (array_key_exists('_method', $_GET) === true)
 {
 	$_SERVER['REQUEST_METHOD'] = strtoupper(trim($_GET['_method']));
