@@ -573,7 +573,7 @@ class ResterController {
 			$data = array();
 
 			foreach ($newData as $key => $value) {
-				$data[$key] = sprintf('"%s" = ?', $key);
+				$data[$key] = sprintf('`%s` = ?', $key);
 			}
 
 			$query = array
@@ -595,9 +595,8 @@ class ResterController {
 			foreach($_FILES as $fileField => $f) {
 				if($route->getFileProcessor($fileField) != NULL) { //We have to process
 					$processor = $route->getFileProcessor($fileField);
-					$upload = $processor->saveUploadFile($baseObject, $route->routeName, $f);
-					var_dump($upload);
-					$newData = array ($route->primaryKey->fieldName => $baseObject, $fileField => $upload["destination"]);
+					$upload = $processor->saveUploadFile($baseObject[$route->primaryKey->fieldName], $route->routeName, $f);
+					$newData = array ($route->primaryKey->fieldName => $baseObject[$route->primaryKey->fieldName], $fileField => $upload["destination"]);
 					$this->updateObjectFromRoute($route->routeName, $baseObject[$route->primaryKey->fieldName], $newData);
 				}
 			}
@@ -706,8 +705,6 @@ function parse_raw_http_request($input, array &$a_data)
   $a_blocks = preg_split("/-+$boundary/", $input);
   array_pop($a_blocks);
   
-  var_dump($a_blocks);
-       
   // loop data blocks
   foreach ($a_blocks as $id => $block)
   {
