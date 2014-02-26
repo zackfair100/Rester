@@ -21,6 +21,13 @@ class ResterController {
 		
 		//Internal processors
 		
+		$this->addRequestProcessor("OPTIONS", function($routeName = NULL, $routePath = NULL, $parameters = NULL) {
+			if(isset($routeName) && isset($routePath)) {
+				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routePath[0]], $this->getAvailableRoutes()));
+			}
+			$this->showResult("");
+		});
+		
 		/**
 		* This is the main GET processor
 		* If the request does not have a route, shows the doc for swagger
@@ -37,6 +44,9 @@ class ResterController {
 				error_log("Returning apidoc");
 				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routePath[0]], $this->getAvailableRoutes()));
 			}
+			
+			$this->checkRouteExists($routeName);
+			
 		
 			if(count($routePath) >= 1) {
 				$command = $routePath[0];
@@ -72,6 +82,10 @@ class ResterController {
 					$callback = $this->customRoutes["POST"][$routeName][$command];
 					call_user_func($callback, $parameters);
 					return;
+				} else { //tenemos un id; hacemos un update
+					$result = $this->updateObjectFromRoute($routeName, $routePath[0], $_POST);
+					$this->processFiles($this->getAvailableRoutes()[$routeName], $_POST);
+					$this->showResult($result);
 				}
 			}
 		
@@ -142,9 +156,13 @@ class ResterController {
 					$this->showResult($result);
 				}
 			} else { //id from URL
+		
 				parse_str($input, $putData);
-				$result = $this->updateObjectFromRoute($routeName, $routePath[0], $putData);
-				$this->showResult($result);
+			
+					error_log("IS INDEXED");
+					$result = $this->updateObjectFromRoute($routeName, $routePath[0], $putData);
+					$this->showResult($result);
+		
 			}
 					
 			if($result > 0) {
@@ -154,6 +172,14 @@ class ResterController {
 			}
 		
 		});
+	}
+	
+	function checkRouteExists($routeName) {
+		if(!isset($this->getAvailableRoutes()[$routeName])) {
+				$this->showError(404);
+				return false;
+		}
+		return true;
 	}
 	
 	function addFileProcessor($routeName, $fieldName, $acceptedTypes = NULL) {
@@ -376,11 +402,16 @@ class ResterController {
 			
 				if($i == 0) $q = "WHERE"; else $q = "AND";
 				
-				$q .= " ".$route->routeName.".".$filterField." ";
+				$q .= " (".$route->routeName.".".$filterField." ";
 						
 				if(is_array($filterValue)) {
 					$queryType = array_keys($filterValue)[0];
 					$queryValue =$filterValue[$queryType];	
+					
+					$val = explode(",", $queryValue);
+					
+					
+					
 					switch($queryType) {
 						case "in":
 							$q.="LIKE '%".$queryValue."%'";
@@ -401,10 +432,22 @@ class ResterController {
 							$q.="= '".$queryValue."'";
 						break;
 					}
+					
+					
 				} else {
-					$q.="= '".$filterValue."'";
+	
+					$val = explode(",", $filterValue);
+	
+					$q.="= '".$val[0]."'";
+					
+					for($i = 1; $i<count($val); $i++) {
+						$q.=" OR ".$route->routeName.".".$filterField." = '".$val[$i]."'";	
+					}
+
 				}
-								
+				
+				$q.= ")";				
+				
 				$query[] = $q;
 				
 				$i++;
@@ -486,9 +529,7 @@ class ResterController {
 		
 		return $response;
 	}
-	
-	
-	
+		
 	function getObjectByID($routeName, $ID) {
 		
 		/*
@@ -532,7 +573,7 @@ class ResterController {
 			$data = array();
 
 			foreach ($newData as $key => $value) {
-				$data[$key] = sprintf('"%s" = ?', $key);
+				$data[$key] = sprintf('`%s` = ?', $key);
 			}
 
 			$query = array
@@ -543,7 +584,22 @@ class ResterController {
 			$query = sprintf('%s;', implode(' ', $query));
 			
 			$result = $this->dbController->Query($query, $newData);
+			
 			return $result;
+		}
+	}
+	
+	function processFiles($route, $baseObject) {
+			//Process files
+		if(count($_FILES) > 0) { //we got files... process them
+			foreach($_FILES as $fileField => $f) {
+				if($route->getFileProcessor($fileField) != NULL) { //We have to process
+					$processor = $route->getFileProcessor($fileField);
+					$upload = $processor->saveUploadFile($baseObject[$route->primaryKey->fieldName], $route->routeName, $f);
+					$newData = array ($route->primaryKey->fieldName => $baseObject[$route->primaryKey->fieldName], $fileField => $upload["destination"]);
+					$this->updateObjectFromRoute($route->routeName, $baseObject[$route->primaryKey->fieldName], $newData);
+				}
+			}
 		}
 	}
 	
@@ -615,6 +671,66 @@ class ResterController {
 		$result = $this->dbController->Query("DESCRIBE ".$table);
 		return $result;
 	}
+	
+	
+	/**
+ * Parse raw HTTP request data
+ *
+ * Pass in $a_data as an array. This is done by reference to avoid copying
+ * the data around too much.
+ *
+ * Any files found in the request will be added by their field name to the
+ * $data['files'] array.
+ *
+ * @param   array  Empty array to fill with data
+ * @return  array  Associative array of request data
+ */
+function parse_raw_http_request($input, array &$a_data)
+{
+   
+  // grab multipart boundary from content type header
+  preg_match('/boundary=(.*)$/', $_SERVER['CONTENT_TYPE'], $matches);
+   
+  // content type is probably regular form-encoded
+  if (!count($matches))
+  {
+    // we expect regular puts to containt a query string containing data
+    parse_str(urldecode($input), $a_data);
+    return $a_data;
+  }
+   
+  $boundary = $matches[1];
+ 
+  // split content by boundary and get rid of last -- element
+  $a_blocks = preg_split("/-+$boundary/", $input);
+  array_pop($a_blocks);
+  
+  // loop data blocks
+  foreach ($a_blocks as $id => $block)
+  {
+    if (empty($block))
+      continue;
+     
+    // you'll have to var_dump $block to understand this and maybe replace \n or \r with a visibile char
+     
+    // parse uploaded files
+    if (strpos($block, 'application/octet-stream') !== FALSE)
+    {
+      // match "name", then everything after "stream" (optional) except for prepending newlines
+      preg_match("/name=\"([^\"]*)\".*stream[\n|\r]+([^\n\r].*)?$/s", $block, $matches);
+      $a_data['files'][$matches[1]] = $matches[2];
+    }
+    // parse all other fields
+    else
+    {
+      // match "name" and optional value in between newline sequences
+      preg_match('/name=\"([^\"]*)\"[\n|\r]+([^\n\r].*)?\r$/s', $block, $matches);
+      $a_data[$matches[1]] = $matches[2];
+    }
+  }
 }
+
+	
+} //END
 
 ?>

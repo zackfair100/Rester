@@ -13,8 +13,11 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE');
 header('Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept');
 
+$resterController = new ResterController();
+
 if(isset($_GET["cacheClear"])) {
 	ApiCacheManager::clear();
+	exit(ArrestDB::Reply("Cache Clear!"));
 }
 
 if (strcmp(PHP_SAPI, 'cli') === 0)
@@ -36,8 +39,10 @@ else if (array_key_exists('HTTP_X_HTTP_METHOD_OVERRIDE', $_SERVER) === true)
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
+//File processor
 $resterController->addFileProcessor("imagenes_poi", "imagen");
-$resterController->addFileProcessor("tipologia", "icono");
+$resterController->addFileProcessor("poi", "imagenDefecto");
+
 
 $loginCommand = new RouteCommand("POST", "usuarios", "login", function($params = NULL) {
 	error_log("Processing login");
@@ -84,6 +89,36 @@ $poisRouteCommand = new RouteCommand("GET", "ruta", "getRutaWithPois", function(
 $resterController->addRouteCommand($poisRouteCommand);
  
  
+ $routePoisCommand = new RouteCommand("GET", "poi", "getPoiWithRutas", function($params = NULL) {
+	error_log("Processing getPoiWithRutas");
+	
+	global $resterController;
+	
+	$result = $resterController->getObjectsFromRouteName("poi", $params);
+	
+	$resultWithChilds = array();
+	
+	foreach($result as $row) {
+		$filter = array("poi" => $row["id"]);
+	
+		$childs = $resterController->getObjectsFromRouteName("poi_ruta", $filter);
+		
+		$rutas = array();
+		if(isset($childs) && count($childs) > 0) {		
+			foreach($childs as $c) {
+				$rutas[] = $c["ruta"];
+			}
+		}
+		
+		$row["rutas"]=$rutas;
+		$resultWithChilds[]=$row;
+	}
+
+	$resterController->showResult($resultWithChilds, true);
+	
+});
+
+$resterController->addRouteCommand($routePoisCommand);
 
 //Do the work
 $resterController->processRequest($requestMethod);
