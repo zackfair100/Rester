@@ -39,11 +39,11 @@ else if (array_key_exists('HTTP_X_HTTP_METHOD_OVERRIDE', $_SERVER) === true)
 
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 
-//File processor
-$resterController->addFileProcessor("imagenes_poi", "imagen");
-$resterController->addFileProcessor("poi", "imagenDefecto");
+if(file_exists("fileProcessors.php")) {
+	include("fileProcessors.php");
+}
 
-
+/*
 $loginCommand = new RouteCommand("POST", "usuarios", "login", function($params = NULL) {
 	error_log("Processing login");
 	global $resterController;
@@ -119,6 +119,7 @@ $resterController->addRouteCommand($poisRouteCommand);
 });
 
 $resterController->addRouteCommand($routePoisCommand);
+*/
 
 //Do the work
 $resterController->processRequest($requestMethod);

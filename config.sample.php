@@ -9,6 +9,10 @@ define('DBNAME', 'mydb');
 define('DBUSER', 'dbuser');
 define('DBPASSWORD', 'dbpassword');
 
+//define('LOG_VERBOSE', true);
+
+define('FILE_UPLOAD_PATH', 'uploads');
+
 /** IP FILTER */
 $clients = array
 (

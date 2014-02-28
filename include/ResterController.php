@@ -78,7 +78,7 @@ class ResterController {
 			if(count($routePath) == 1) {
 				$command = $routePath[0];
 				if(isset($this->customRoutes["POST"][$routeName][$command])) {
-					error_log("Executing custom command");
+					ResterUtils::Log(">> Executing custom command <".$command.">");
 					$callback = $this->customRoutes["POST"][$routeName][$command];
 					call_user_func($callback, $parameters);
 					return;
@@ -89,7 +89,7 @@ class ResterController {
 				}
 			}
 		
-			if (empty($_POST) === true) {
+			if (empty($_POST) === true) { //if empty, create a barebone object
 				$this->showError(204);
 			} else if (is_array($_POST) === true) { 
 				$result = $this->insertObject($routeName, $_POST); //give all the post data	
@@ -216,17 +216,22 @@ class ResterController {
 	}
 		
 	function processRequest($requestMethod) {
+	
+		ResterUtils::Log("*** BEGIN PROCESSING REQUEST ".$requestMethod." *** ==>");
 		
 		if(isset($this->requestProcessors[$requestMethod])) {
 			foreach($this->requestProcessors[$requestMethod] as $callback) {
 			
-				error_log("PROCESSING ".$requestMethod);
+				ResterUtils::Log(">> Found processor callback");
+			
 				$callbackParameters = array();
 				
 				if($this->getCurrentRoute() && $this->getCurrentRoute() != "/") {
 					$callbackParameters[0] = $this->getCurrentRoute();
+					ResterUtils::Log(">> Processing route /".$this->getCurrentRoute());
 					if(count($this->getCurrentPath()) > 0) {
 						$callbackParameters[1]=$this->getCurrentPath();
+						ResterUtils::Log(">> Processing command ".$this->getCurrentPath());
 					} else {
 						$callbackParameters[1] = NULL;
 					}
@@ -238,6 +243,7 @@ class ResterController {
 						
 					if(isset($requestParameters)) {
 						$callbackParameters[2] = $requestParameters;
+						ResterUtils::Log(">> PARAMETERS: ".http_build_query($requestParameters));
 					}
 				}
 								
@@ -286,7 +292,6 @@ class ResterController {
 		{
 			$objectData = array($objectData);
 		}
-		
 		
 		foreach ($objectData as $row)
 		{
@@ -526,7 +531,9 @@ class ResterController {
 			
 			$response[]=$mainObject;
 		}
-		
+		if(!isset($response)) {
+			$this->showError(404);
+		}
 		return $response;
 	}
 		
@@ -562,7 +569,7 @@ class ResterController {
 	}
 	
 	function updateObjectFromRoute($routeName, $objectID, $newData) {
-		error_log("UPDATING OBJECT");
+		ResterUtils::Log("UPDATING OBJECT");
 		if (empty($newData) === true) {
 			$this->showError(204);
 		}
@@ -613,6 +620,9 @@ class ResterController {
 	}
 	
 	function showResult($result, $forceArray = false) {
+	
+		ResterUtils::Log("*** DISPLAY RESULT TO API ***");
+	
 		if ($result === false || count($result) == 0) {
 			$this->showError(404);
 		} else if (empty($result) === true) {

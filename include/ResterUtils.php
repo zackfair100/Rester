@@ -15,6 +15,12 @@ class ResterUtils {
 		
 		return $ret;
 	}
+
+	static function Log($message) {
+		if(defined('LOG_VERBOSE')) {
+			error_log($message);
+		}
+	}
 	
 }
 
