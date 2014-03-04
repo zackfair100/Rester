@@ -231,7 +231,7 @@ class ResterController {
 					ResterUtils::Log(">> Processing route /".$this->getCurrentRoute());
 					if(count($this->getCurrentPath()) > 0) {
 						$callbackParameters[1]=$this->getCurrentPath();
-						ResterUtils::Log(">> Processing command ".$this->getCurrentPath());
+						ResterUtils::Log(">> Processing command ".implode("/",$this->getCurrentPath()));
 					} else {
 						$callbackParameters[1] = NULL;
 					}
@@ -532,7 +532,7 @@ class ResterController {
 			$response[]=$mainObject;
 		}
 		if(!isset($response)) {
-			$this->showError(404);
+			return NULL;
 		}
 		return $response;
 	}
@@ -630,9 +630,9 @@ class ResterController {
 		} else if($result === true || (is_int($result) && $result >= 1) ) {
 			$this->doResponse(ApiResponse::successResponse());
 		} else {
-			if(is_array($result) && count($result) == 1 && !$forceArray)
+			if(is_array($result) && count($result) == 1 && !$forceArray && ResterUtils::isIndexed($result)) {
 				$this->doResponse($result[0]);
-			else
+			} else
 				$this->doResponse($result);
 		}
 	}

@@ -43,7 +43,7 @@ if(file_exists("fileProcessors.php")) {
 	include("fileProcessors.php");
 }
 
-/*
+
 $loginCommand = new RouteCommand("POST", "usuarios", "login", function($params = NULL) {
 	error_log("Processing login");
 	global $resterController;
@@ -88,8 +88,8 @@ $poisRouteCommand = new RouteCommand("GET", "ruta", "getRutaWithPois", function(
 
 $resterController->addRouteCommand($poisRouteCommand);
  
- 
- $routePoisCommand = new RouteCommand("GET", "poi", "getPoiWithRutas", function($params = NULL) {
+
+$routePoisCommand = new RouteCommand("GET", "poi", "getPoiWithRutas", function($params = NULL) {
 	error_log("Processing getPoiWithRutas");
 	
 	global $resterController;
@@ -119,7 +119,30 @@ $resterController->addRouteCommand($poisRouteCommand);
 });
 
 $resterController->addRouteCommand($routePoisCommand);
-*/
+
+
+
+$mailCommand = new RouteCommand("POST", "usuarios", "contacto", function($params = NULL) {
+
+	global $resterController;
+
+	//$destino = "rutas@addin.es";
+	$destino = "omanta@moddity.net";
+	
+	$correo = $_POST["correo"];
+	$mensaje = $_POST["mensaje"];
+	
+	$subject = "Correo desde rutasculturales App";
+	if(isset($_POST["usuario"])) {
+		$subject.=" De: ".$_POST["usuario"];
+	}
+	
+	
+	mail($destino, $subject, $mensaje, "From: ".$correo."\r\n");
+	$resterController->showResult(ApiResponse::successResponse());
+});
+
+$resterController->addRouteCommand($mailCommand);
 
 //Do the work
 $resterController->processRequest($requestMethod);

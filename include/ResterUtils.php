@@ -2,6 +2,9 @@
 
 class ResterUtils {
 	
+	/**
+	* Function to check if array is number indexed 0,1,2,3...
+	*/
 	static function isIndexed($arr) {
 		return array_values($arr) === $arr;
 	}
