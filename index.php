@@ -1,5 +1,8 @@
 <?php
 
+if(!file_exists(__DIR__."/config.php"))
+	die("No config file found!");
+
 require_once(__DIR__.'/config.php');
 require_once(__DIR__.'/include/ArrestDB.php');
 require_once(__DIR__.'/include/ApiResponse.php');
