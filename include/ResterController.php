@@ -354,11 +354,11 @@ class ResterController {
 		return array_shift($this->getObjectByID($routeName,$result));
 	}
 	
-	function getObjectsFromRouteName($routeName, $filters = NULL) {
-		return $this->getObjectsFromRoute($this->getAvailableRoutes()[$routeName], $filters);
+	function getObjectsFromRouteName($routeName, $filters = NULL, $orFilter = false) {
+		return $this->getObjectsFromRoute($this->getAvailableRoutes()[$routeName], $filters, $orFilter);
 	}
 	
-	function getObjectsFromRoute($route, $filters = NULL) {
+	function getObjectsFromRoute($route, $filters = NULL, $orFilter = false) {
 	
 		if(isset($filters['order'])) {
 			$order['by']=$filters['order'];
@@ -403,9 +403,20 @@ class ResterController {
 		$i = 0;
 		if(isset($filters)) {
 			
+			$closeBracket = false;
+			
 			foreach($filters as $filterField => $filterValue) {
 			
-				if($i == 0) $q = "WHERE"; else $q = "AND";
+				if($i == 0) {
+					$q = "WHERE ("; 
+					$closeBracket = true;
+				} else {
+					if($orFilter) {
+						$q = "OR";
+					} else {
+						$q = "AND";
+					}
+				}
 				
 				$q .= " (".$route->routeName.".".$filterField." ";
 						
@@ -443,7 +454,9 @@ class ResterController {
 	
 					$val = explode(",", $filterValue);
 	
+					//search mode
 					$q.="= '".$val[0]."'";
+					
 					
 					for($i = 1; $i<count($val); $i++) {
 						$q.=" OR ".$route->routeName.".".$filterField." = '".$val[$i]."'";	
@@ -458,6 +471,9 @@ class ResterController {
 				$i++;
 			}
 		}
+		
+		if($closeBracket)
+			$query[] = ")";
 		
 		//JOINS
 		if(count($route->getRelationFields()) > 0) {
@@ -506,15 +522,6 @@ class ResterController {
 		foreach($result as $row) {
 			$mainObject = ResterUtils::cleanArray($row, $route->getFieldNames(FALSE, FALSE));
 			
-			/*
-			if(count($route->fileProcessors) > 0) {
-				foreach(array_keys($mainObject) as $fieldName) {
-					if($route->getFileProcessor($fieldName) != NULL) {
-						$mainObject[$fieldName]=$this->getRoot()."/".$mainObject[$fieldName];
-					}
-				}	
-			}*/
-	
 			if(count($route->getRelationFields()) > 0) {
 				foreach($route->getRelationFields() as $rf) {
 					
@@ -536,18 +543,18 @@ class ResterController {
 		}
 		return $response;
 	}
+	
+	function query($query) {
+		return $this->dbController->Query($query);
+	}
 		
 	function getObjectByID($routeName, $ID) {
-		
-		/*
-		$query = array(sprintf('SELECT * FROM "%s"', $routeName));
-		
-		$query[] = sprintf('WHERE "%s" = ? LIMIT 1', 'id');
-	
-		$query = sprintf('%s;', implode(' ', $query));
-		
-		$result = $this->dbController->Query($query, $ID);*/
+
 		$route = $this->getAvailableRoutes()[$routeName];
+		
+		if(is_array($ID)) {
+			$ID=implode(",", $ID);
+		}
 		
 		$filter = array($route->primaryKey->fieldName => $ID);
 			
@@ -675,6 +682,14 @@ class ResterController {
 		if($this->routes == NULL)
 			$this->routes = $this->dbController->getRoutes();
 		return $this->routes;
+	}
+	
+	function getRoute($routeName) {
+		$routes = $this->getAvailableRoutes();
+		if(isset($routes[$routeName]))
+			return $routes[$routeName];
+			
+		return NULL;
 	}
 	
 	function getColumnsFromTable($table) {

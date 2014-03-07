@@ -63,6 +63,16 @@ $poisRouteCommand = new RouteCommand("GET", "ruta", "getRutaWithPois", function(
 	
 	global $resterController;
 	
+	$distanceMapping = NULL;
+	
+	if(isset($params["lat"]) && isset($params["lon"])) {
+		$params["distancia"]=1000000;
+		$distanceMapping = getDistanciaMapping($resterController, $params);
+		unset($params["lat"]);
+		unset($params["lon"]);
+		unset($params["distancia"]);
+	}
+	
 	$result = $resterController->getObjectsFromRouteName("ruta", $params);
 	
 	$resultWithChilds = array();
@@ -79,6 +89,9 @@ $poisRouteCommand = new RouteCommand("GET", "ruta", "getRutaWithPois", function(
 		}
 		
 		$row["pois"]=$pois;
+		if(isset($distanceMapping[$row["id"]])) {
+			$row["distancia"]=$distanceMapping[$row["id"]];
+		}
 		$resultWithChilds[]=$row;
 	}
 
@@ -94,6 +107,16 @@ $routePoisCommand = new RouteCommand("GET", "poi", "getPoiWithRutas", function($
 	
 	global $resterController;
 	
+	$distanceMapping = NULL;
+	
+	if(isset($params["lat"]) && isset($params["lon"])) {
+		$params["distancia"]=1000000;
+		$distanceMapping = getDistanciaMapping($resterController, $params);
+		unset($params["lat"]);
+		unset($params["lon"]);
+		unset($params["distancia"]);
+	}
+	
 	$result = $resterController->getObjectsFromRouteName("poi", $params);
 	
 	$resultWithChilds = array();
@@ -106,6 +129,10 @@ $routePoisCommand = new RouteCommand("GET", "poi", "getPoiWithRutas", function($
 		$rutas = array();
 		if(isset($childs) && count($childs) > 0) {		
 			foreach($childs as $c) {
+				if(isset($distanceMapping[$c["ruta"]["id"]])) {
+					$c["ruta"]["distancia"]=$distanceMapping[$c["ruta"]["id"]];
+				}
+			
 				$rutas[] = $c["ruta"];
 			}
 		}
@@ -119,8 +146,6 @@ $routePoisCommand = new RouteCommand("GET", "poi", "getPoiWithRutas", function($
 });
 
 $resterController->addRouteCommand($routePoisCommand);
-
-
 
 $mailCommand = new RouteCommand("POST", "usuarios", "contacto", function($params = NULL) {
 
@@ -144,6 +169,139 @@ $mailCommand = new RouteCommand("POST", "usuarios", "contacto", function($params
 
 $resterController->addRouteCommand($mailCommand);
 
+$buscarCommand = new RouteCommand("GET", "ruta","buscar", function($params = NULL) {
+	
+	error_log("PROCESANDO BUSQUEDA");
+	
+	global $resterController;
+	
+	//Miramos si han pasado ciudad
+	
+	if(isset($params["ciudad"])) {
+		$ciudades = $resterController->getObjectsFromRouteName("ciudades", array("ciudad" => $params["ciudad"]));
+			
+		if(count($ciudades) > 0) {
+			$cid = array();
+			foreach($ciudades as $c) {
+				$cid[] = $c["id"];
+			}
+			$params["ciudad"]=implode(",", $cid);
+		}
+	}
+	
+	if(isset($params["tipologia"])) {
+		$tipologias = $resterController->getObjectsFromRouteName("tipologia", array("tipo" => $params["tipologia"]));
+			
+		if(count($tipologias) > 0) {
+			$tid = array();
+			foreach($tipologias as $t) {
+				$tid[] = $t["id"];
+			}
+			$params["tipologia"]=implode(",", $tid);
+		}
+	}
+
+	$result = $resterController->getObjectsFromRouteName("ruta", $params, true);
+	
+	$resultWithChilds = array();
+	
+	foreach($result as $row) {
+		$filter = array("ruta" => $row["id"]);
+	
+		$childs = $resterController->getObjectsFromRouteName("poi_ruta", $filter);
+		
+		$pois = array();
+		
+		foreach($childs as $c) {
+			$pois[] = $c["poi"];
+		}
+		
+		$row["pois"]=$pois;
+		$resultWithChilds[]=$row;
+	}
+
+	$resterController->showResult($resultWithChilds, true);
+	
+});
+
+$resterController->addRouteCommand($buscarCommand);
+
+$rutasCercaCommand = new RouteCommand("GET", "ruta", "rutasCercanas", function($params = NULL) {
+
+	global $resterController;
+
+	if(!isset($params["lat"])) {
+		$resterController->showError(500);
+	}
+	if(!isset($params["lon"])) {
+		$resterController->showError(500);
+	}
+	if(!isset($params["distancia"])) {
+		$resterController->showError(500);
+	}
+	
+	$query = "SELECT id, ( 6371 * acos( cos( radians(".$params["lat"].") ) * cos( radians( `latitud` ) ) 
+* cos( radians( `longitud` ) - radians(".$params["lon"].") ) + sin( radians(".$params["lat"].") ) * sin(radians(latitud)) ) ) AS distance,ruta 
+FROM ruta_path 
+GROUP BY ruta 
+HAVING distance < ".$params["distancia"]."
+ORDER BY distance
+LIMIT 0,1000";
+
+	$res = $resterController->query($query);
+	
+	foreach($res as $r) {
+		$distance[$r["ruta"]]=$r["distance"];
+	}
+
+	
+	$result = $resterController->getObjectByID("ruta",implode(",",array_keys($distance)));
+	
+	
+	$resultWithChilds = array();
+	
+	foreach($result as $row) {
+		$filter = array("ruta" => $row["id"]);
+	
+		$childs = $resterController->getObjectsFromRouteName("poi_ruta", $filter);
+		
+		$pois = array();
+		
+		foreach($childs as $c) {
+			$pois[] = $c["poi"];
+		}
+		
+		$row["pois"]=$pois;
+		$row["distancia"]=$distance[$row["id"]];
+		$resultWithChilds[]=$row;
+	}
+
+	$resterController->showResult($resultWithChilds, true);
+
+
+});
+
+$resterController->addRouteCommand($rutasCercaCommand);
+
+function getDistanciaMapping($resterController, $params) {
+	$query = "SELECT id, ( 6371 * acos( cos( radians(".$params["lat"].") ) * cos( radians( `latitud` ) ) 
+* cos( radians( `longitud` ) - radians(".$params["lon"].") ) + sin( radians(".$params["lat"].") ) * sin(radians(latitud)) ) ) AS distance,ruta 
+FROM ruta_path 
+GROUP BY ruta 
+HAVING distance < ".$params["distancia"]."
+ORDER BY distance
+LIMIT 0,1000";
+
+	$res = $resterController->query($query);
+	
+	foreach($res as $r) {
+		$distance[$r["ruta"]]=$r["distance"];
+	}
+	
+	return $distance;
+
+}
+
 //Do the work
 $resterController->processRequest($requestMethod);
 
@@ -151,3 +309,4 @@ $result = ApiResponse::errorResponse(405);
 
 exit(ArrestDB::Reply($result));
 
+ 
