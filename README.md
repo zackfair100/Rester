@@ -1,59 +1,45 @@
-#ArrestDB
+#Rester
 
-ArrestDB is a "plug-n-play" RESTful API for SQLite, MySQL and PostgreSQL databases.
-
-ArrestDB provides a REST API that maps directly to your database stucture with no configuation.
-
-Lets suppose you have set up ArrestDB at `http://api.example.com/` and a table named `customers`.
-
-To get a list of customers you would simply need to do:
-
-	GET http://api.example.com/customers/
-
-Where `customers` is the table name. As a response you would get a JSON formatted list of customers.
-
-Or, if you only want to get one customer, then you would append the customer `id` to the URL:
-
-	GET http://api.example.com/customers/123/
-
-##Requirements
+Rester is a fork of ArrestDB as codebase with many improvements and new features.
+	
+	ArrestDB: https://github.com/alixaxel/ArrestDB
+	
+##Requeriments
 
 - PHP 5.3+ & PDO
 - SQLite / MySQL / PostgreSQL
 
+##Features
+
+- Create an API in 5 minutes
+- Auto-generation of swagger-ui documentation on http://api.example.com/doc/
+- MySQL Relation support
+- File upload support
+- Custom API functions
+- Filters
+
+
 ##Installation
 
-Edit `index.php` and change the `$dsn` variable located at the top, here are some examples:
-
-- SQLite: `$dsn = 'sqlite://./path/to/database.sqlite';`
-- MySQL: `$dsn = 'mysql://[user[:pass]@]host[:port]/db/;`
-- PostgreSQL: `$dsn = 'pgsql://[user[:pass]@]host[:port]/db/;`
-
-If you want to restrict access to allow only specific IP addresses, add them to the `$clients` array:
+Edit `config.php` and change the `$dsn` variable located at the top, here are some examples:
 
 ```php
-$clients = array
-(
-	'127.0.0.1',
-	'127.0.0.2',
-	'127.0.0.3',
-);
+/** The API Version */
+define('API_VERSION', "1.0.0");
+
+/** Database credentials */
+define('DBHOST', 'localhost');
+define('DBNAME', 'mydb');
+define('DBUSER', 'dbuser');
+define('DBPASSWORD', 'dbpassword');
+
+/** Enable logging on error.log */
+//define('LOG_VERBOSE', true);
+
+/** Path where uploads */
+define('FILE_UPLOAD_PATH', 'uploads');
+
 ```
-
-After you're done editing the file, place it in a public directory (feel free to change the filename).
-
-If you're using Apache, you can use the following `mod_rewrite` rules in a `.htaccess` file:
-
-```apache
-<IfModule mod_rewrite.c>
-	RewriteEngine	On
-	RewriteCond		%{REQUEST_FILENAME}	!-d
-	RewriteCond		%{REQUEST_FILENAME}	!-f
-	RewriteRule		^(.*)$ index.php/$1	[L,QSA]
-</IfModule>
-```
-
-***Nota bene:*** You must access the file directly, including it from another file won't work.
 
 ##API Design
 
@@ -61,35 +47,36 @@ The actual API design is very straightforward and follows the design patterns of
 
 	(C)reate > POST   /table
 	(R)ead   > GET    /table[/id]
-	(R)ead   > GET    /table[/column/content]
 	(U)pdate > PUT    /table/id
+	(U)pdate > POST   /table/id
 	(D)elete > DELETE /table/id
 
-To put this into practice below are some example of how you would use the ArrestDB API:
+To put this into practice below are some example of how you would use the Rester API:
 
 	# Get all rows from the "customers" table
 	GET http://api.example.com/customers/
 
 	# Get a single row from the "customers" table (where "123" is the ID)
-	GET http://api.example.com/customers/123/
-
-	# Get all rows from the "customers" table where the "country" field matches "Australia" (`LIKE`)
-	GET http://api.example.com/customers/country/Australia/
+	GET http://api.example.com/customers/123
 
 	# Get 50 rows from the "customers" table
 	GET http://api.example.com/customers/?limit=50
 
 	# Get 50 rows from the "customers" table ordered by the "date" field
 	GET http://api.example.com/customers/?limit=50&by=date&order=desc
+	
+	# Get all the customers named LIKE Tom; (Tom, Tomato, Tommy...)
+	GET http://api.example.com/customers/?name[in]=Tom
 
 	# Create a new row in the "customers" table where the POST data corresponds to the database fields
-	POST http://api.example.com/customers/
+	POST http://api.example.com/customers
 
 	# Update customer "123" in the "customers" table where the PUT data corresponds to the database fields
-	PUT http://api.example.com/customers/123/
+	PUT http://api.example.com/customers/123
+	POST http://api.example.com/customers/123
 
 	# Delete customer "123" from the "customers" table
-	DELETE http://api.example.com/customers/123/
+	DELETE http://api.example.com/customers/123
 
 Please note that `GET` calls accept the following query string variables:
 
@@ -97,110 +84,20 @@ Please note that `GET` calls accept the following query string variables:
   - `order` (order direction: `ASC` or `DESC`)
 - `limit` (`LIMIT x` SQL clause)
   - `offset` (`OFFSET x` SQL clause)
-
-Additionally, `POST` and `PUT` requests accept JSON-encoded and/or zlib-compressed payloads.
-
-If your REST client does not support certain requests, you can use the `X-HTTP-Method-Override` header:
-
-- `PUT` = `POST` + `X-HTTP-Method-Override: PUT`
-- `DELETE` = `GET` + `X-HTTP-Method-Override: DELETE`
-
-Alternatively, you can also override the HTTP method by using the `_method` query string parameter.
-
-As of version 1.5.0, it's also possible to atomically `INSERT` a batch of records by POSTing an array of arrays.
-
-##Responses
-
-All responses are in the JSON format. A `GET` response from the `customers` table might look like this:
-
-```json
-[
-    {
-        "id": "114",
-        "customerName": "Australian Collectors, Co.",
-        "contactLastName": "Ferguson",
-        "contactFirstName": "Peter",
-        "phone": "123456",
-        "addressLine1": "636 St Kilda Road",
-        "addressLine2": "Level 3",
-        "city": "Melbourne",
-        "state": "Victoria",
-        "postalCode": "3004",
-        "country": "Australia",
-        "salesRepEmployeeNumber": "1611",
-        "creditLimit": "117300"
-    },
-    ...
-]
-```
-
-Successful `POST` responses will look like:
-
-```json
-{
-    "success": {
-        "code": 201,
-        "status": "Created"
-    }
-}
-```
-
-Successful `PUT` and `DELETE` responses will look like:
-
-```json
-{
-    "success": {
-        "code": 200,
-        "status": "OK"
-    }
-}
-```
-
-Errors are expressed in the format:
-
-```json
-{
-    "error": {
-        "code": 400,
-        "status": "Bad Request"
-    }
-}
-```
-
-The following codes and message are avaiable:
-
-* `200` OK
-* `201` Created
-* `204` No Content
-* `400` Bad Request
-* `403` Forbidden
-* `404` Not Found
-* `409` Conflict
-* `503` Service Unavailable
-
-Also, if the `callback` query string is set *and* is valid, the returned result will be a [JSON-P response](http://en.wikipedia.org/wiki/JSONP):
-
-```javascript
-callback(JSON);
-```
-
-Ajax-like requests will be minified, whereas normal browser requests will be human-readable.
+- `parameter[in]` (LIKE search)
+- `parameter[gt]` (greater than search)
+- `parameter[lt]` (less than search)
+- `parameter[ge]` (greater or equals search)
+- `parameter[le]` (less or equals search)
 
 ##Changelog
 
-- **1.2.0** ~~support for JSON payloads in `POST` and `PUT` (optionally gzipped)~~
-- **1.3.0** ~~support for JSON-P responses~~
-- **1.4.0** ~~support for HTTP method overrides using the `X-HTTP-Method-Override` header~~
-- **1.5.0** ~~support for bulk inserts in `POST`~~
-- **1.6.0** ~~added support for PostgreSQL~~
-- **1.7.0** ~~fixed PostgreSQL connection bug, other minor improvements~~
+- **beta** ~~Reaching beta stage~~
 
 ##Credits
-
+Rester is a nearly complete rewrite of [ArrestDB](ArrestDB: https://github.com/alixaxel/ArrestDB) with many additional features.
 ArrestDB is a complete rewrite of [Arrest-MySQL](https://github.com/gilbitron/Arrest-MySQL) with several optimizations and additional features.
 
 ##License (MIT)
 
-Copyright (c) 2014 Alix Axel (alix.axel@gmail.com).
-
-[![Donate Bitcoins](https://coinbase.com/assets/buttons/donation_small.png)](https://coinbase.com/checkouts/89e8aa2876ba534f9db3fafa8be4e5fa)
+Copyright (c) 2014 mOddity Mobile S.L. (http://www.moddity.net)
