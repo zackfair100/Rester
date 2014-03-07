@@ -21,7 +21,7 @@ Rester is a fork of ArrestDB as codebase with many improvements and new features
 
 ##Installation
 
-Edit `config.php` and change the `$dsn` variable located at the top, here are some examples:
+Edit `config.php`, here are some examples:
 
 ```php
 /** The API Version */
