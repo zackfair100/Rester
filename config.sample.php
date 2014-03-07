@@ -13,6 +13,8 @@ define('DBPASSWORD', 'dbpassword');
 
 define('FILE_UPLOAD_PATH', 'uploads');
 
+define('API_VERSION', 'version1');
+
 /** IP FILTER */
 $clients = array
 (
