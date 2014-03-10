@@ -332,6 +332,20 @@ class ArrestDB
 		$routes = ApiCacheManager::getValueFromCache(ROUTE_CACHE_KEY);
 		if($routes == NULL)
 			$routes = $this->getRoutesFromDB();
+			
+		//Add the auth routes and remove the not desired ones	
+		unset($routes["oauth_consumer_registry"]);
+		unset($routes["oauth_consumer_token"]);
+		unset($routes["oauth_log"]);
+		unset($routes["oauth_server_nonce"]);
+		unset($routes["oauth_server_registry"]);
+		unset($routes["oauth_server_token"]);
+		
+		$authRoute = new Route();
+		$authRoute->routeName = "auth";
+		
+		$routes["auth"]=$authRoute;
+		
 		return $routes;
 	}
 	

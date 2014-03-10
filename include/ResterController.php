@@ -3,6 +3,8 @@
 require_once('config.php');
 require_once(__DIR__.'/ResterUtils.php');
 require_once(__DIR__.'/model/RouteFileProcessor.php');
+require_once('OAuthServer.php');
+require_once('OAuthStore.php');
 
 
 class ResterController {
@@ -174,6 +176,54 @@ class ResterController {
 		});
 	}
 	
+	function checkOAuth() {
+		
+		//Command to generate the Request Tokens
+		$this->addRouteCommand(new RouteCommand("POST", "auth", "requestToken", function($params = NULL) {
+		
+			if(empty($_POST["userId"])) {
+				$this->showError(400);
+			}
+			
+			$store = OAuthStore::instance('PDO', array('conn' => ArrestDB::$db));
+		
+			$key = $store->updateConsumer($_POST, $_POST["userId"], true);
+			$c = $store->getConsumer($key, $_POST["userId"]);
+			
+			$result["key"]=$c["consumer_key"];
+			$result["secret"]=$c["consumer_secret"];
+			
+			$this->showResult($result);
+			
+		}, array("userId"), "Request a new token"));
+		
+		
+		// Create a new instance of OAuthStore and OAuthServer
+		$store = OAuthStore::instance('PDO', array('conn' => ArrestDB::$db));
+		$server = new OAuthServer();
+		
+		if (OAuthRequestVerifier::requestIsSigned()) {
+			try {
+				$req = new OAuthRequestVerifier();
+				$id = $req->verify(false);
+				// If we have a user ID, then login as that user (for
+				// this request)
+				if ($id) {
+					echo 'Hello ' . $id;
+				}
+			}  catch (OAuthException2 $e)  {
+				// The request was signed, but failed verification
+				header('HTTP/1.1 401 Unauthorized');
+				header('WWW-Authenticate: OAuth realm=""');
+				header('Content-Type: text/plain; charset=utf8');
+				echo $e->getMessage();
+				exit();
+			}	
+		} else {
+			$this->showError(401);
+		}
+	}
+	
 	function checkRouteExists($routeName) {
 		if(!isset($this->getAvailableRoutes()[$routeName])) {
 				$this->showError(404);
@@ -265,7 +315,8 @@ class ResterController {
 				}*/
 			}
 		} else {
-			error_log("Request processor not set ".$requestMethod);
+			ResterUtils::Log("*** ERROR *** Request processor not set ".$requestMethod);
+			$this->showError(405);
 		}
 	}
 	
@@ -679,8 +730,9 @@ class ResterController {
 	* Search the tables of the DB and configures the routes
 	*/
 	function getAvailableRoutes() {
-		if($this->routes == NULL)
+		if($this->routes == NULL) {
 			$this->routes = $this->dbController->getRoutes();
+		}
 		return $this->routes;
 	}
 	
