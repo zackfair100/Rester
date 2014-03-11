@@ -206,11 +206,7 @@ class ResterController {
 			try {
 				$req = new OAuthRequestVerifier();
 				$id = $req->verify(false);
-				// If we have a user ID, then login as that user (for
-				// this request)
-				if ($id) {
-					echo 'Hello ' . $id;
-				}
+				ResterUtils::Log("*** API USER ".$id." ***");
 			}  catch (OAuthException2 $e)  {
 				// The request was signed, but failed verification
 				header('HTTP/1.1 401 Unauthorized');
