@@ -17,6 +17,11 @@ class ResterController {
 	
 	var $requestProcessors = array();
 	
+	/**
+	* Indexed array containing the methods don't checked by OAuth
+	*/
+	var $publicMethods;
+	
 	function ResterController() {
 		$this->dbController = new ArrestDB();
 		$this->checkConnectionStatus();
@@ -202,6 +207,8 @@ class ResterController {
 		$store = OAuthStore::instance('PDO', array('conn' => ArrestDB::$db));
 		$server = new OAuthServer();
 		
+		ResterUtils::Log(">> CHECKING OAUTH");
+		
 		if (OAuthRequestVerifier::requestIsSigned()) {
 			try {
 				$req = new OAuthRequestVerifier();
@@ -216,7 +223,13 @@ class ResterController {
 				exit();
 			}	
 		} else {
-			$this->showError(401);
+				header('HTTP/1.1 401 Unauthorized');
+				header('WWW-Authenticate: OAuth realm=""');
+				header('Content-Type: text/plain; charset=utf8');
+				echo "Authentication error";
+				ResterUtils::Log("*** AUTH ERROR *** ===>");
+				exit();
+			//$this->showError(401);
 		}
 	}
 	
@@ -234,6 +247,10 @@ class ResterController {
 		} else
 			die("Can't add file processor ".$fieldName." to route ".$routeName);
 		
+	}
+	
+	function addPublicMethod($requestMethod, $routeName) {
+		$this->publicMethods[$requestMethod][]=$routeName;
 	}
 	
 	function addRouteCommand($routeCommand) {
@@ -263,7 +280,19 @@ class ResterController {
 		
 	function processRequest($requestMethod) {
 	
-		ResterUtils::Log("*** BEGIN PROCESSING REQUEST ".$requestMethod." *** ==>");
+		ResterUtils::Log("*** BEGIN PROCESSING REQUEST ".$requestMethod." *** ==> ".$this->getRoutePath());
+	
+		if(!isset($this->publicMethods[$requestMethod])) {
+			$this->checkOAuth();
+		} else {
+			$publicRoutes = $this->publicMethods[$requestMethod];
+			if(!in_array($this->getRoutePath(), $publicRoutes))
+				$this->checkOAuth();
+			else
+				ResterUtils::Log("*** PUBLIC ROUTE ==> ".$this->getRoutePath());
+		}
+	
+		
 		
 		if(isset($this->requestProcessors[$requestMethod])) {
 			foreach($this->requestProcessors[$requestMethod] as $callback) {
@@ -721,6 +750,15 @@ class ResterController {
 	public function getCurrentPath() {
 		return array_values(array_filter(array_slice(explode("/", $this->getRoot()), 2)));
 	}
+	
+	public function getRoutePath() {
+		if(count($this->getCurrentPath()) > 0)
+			return $this->getCurrentRoute()."/".implode("/",$this->getCurrentPath());
+		else
+			return $this->getCurrentRoute();
+	}
+	
+	
 	
 	/**
 	* Search the tables of the DB and configures the routes

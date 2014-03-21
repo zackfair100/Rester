@@ -46,9 +46,6 @@ if(defined('API_VERSION') && file_exists(__DIR__."/versions/".API_VERSION.".php"
 	include(__DIR__."/versions/".API_VERSION.".php");
 }
 
-
-$resterController->checkOAuth();
-
 //Do the work
 $resterController->processRequest( $_SERVER['REQUEST_METHOD']);
 
