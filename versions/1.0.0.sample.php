@@ -3,6 +3,7 @@
 /**
 * Sample custom login command
 */
+//Create the command
 $loginCommand = new RouteCommand("POST", "users", "login", function($params = NULL) {
 	
 	global $resterController;
@@ -16,6 +17,11 @@ $loginCommand = new RouteCommand("POST", "users", "login", function($params = NU
 	
 }, array("login", "password"), "Method to login users");
 
+//Add the command to controller
 $resterController->addRouteCommand($loginCommand);
+
+//Disable oauth authentication for certain routes
+$resterController->addPublicMethod("POST", "users/login");
+$resterController->addPublicMethod("GET", "testRoute");
 
 ?>
