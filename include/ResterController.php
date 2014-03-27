@@ -291,6 +291,16 @@ class ResterController {
 		return json_decode($requestBody, true);
 	}
 	
+	function getRequestBody() {
+		$requestBody = @file_get_contents('php://input');
+			
+		if(empty($requestBody)) {
+			return NULL;
+		} 
+			
+		return json_decode($requestBody, true);
+	}
+	
 	function checkRouteExists($routeName) {
 		if(!isset($this->getAvailableRoutes()[$routeName])) {
 				$this->showError(404);
@@ -409,7 +419,11 @@ class ResterController {
 			
 				/*
 				ResterUtils::Log("SERVING: ".$requestMethod." ".$pattern);
+<<<<<<< HEAD
 				$result = DBController::Serve($requestMethod, $callback);
+=======
+				$result = ArrestDB::Serve($requestMethod, $callback);
+>>>>>>> aa96f58... - Support for cleaning values returned from database
 				if($result) {
 					$this->doResponse($result);	
 				}*/
@@ -445,6 +459,7 @@ class ResterController {
 		
 		foreach ($objectData as $row)
 		{
+
 			
 			/////////////
 			// STACKMOB MIGRATION SUPPORT
@@ -734,8 +749,8 @@ class ResterController {
 					$relationObject = array();
 					foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
 						$relationObject[$fieldKey]=$row[$rName];
-					}
-					
+					}			
+
 					$relationObject = $destinationRoute->mapObjectTypes($relationObject);
 					
 					$mainObject[$rf->relation->destinationRoute]=$relationObject;
@@ -835,8 +850,6 @@ class ResterController {
 	function showResult($result, $forceArray = false) {
 	
 		ResterUtils::Log("*** DISPLAY RESULT TO API ***");
-		
-		//ResterUtils::Dump($result);
 	
 		if ($result === false || count($result) == 0) {
 			$this->showError(404);

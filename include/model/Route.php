@@ -72,6 +72,7 @@ class Route {
 		return NULL;
 	}
 	
+
 	/**
 	 * PDO does not treat types of objects by default, this method casts the object values to appropiate type
 	 * @param object $object the source object
@@ -86,10 +87,7 @@ class Route {
 		}
 		return $object;
 	}
-	
-	function addJSONRelation($fieldName, $destinationRoute) {
-		
-	}
+
 }
 
 ?>
