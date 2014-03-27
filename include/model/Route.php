@@ -57,6 +57,14 @@ class Route {
 		return NULL;
 	}
 	
+	function mapObjectTypes($object) {
+		foreach($this->routeFields as $rf) {
+			if($rf->fieldType == "integer") {
+				$object[$rf->fieldName]=intval($object[$rf->fieldName]);
+			}
+		}
+		return $object;
+	}
 }
 
 ?>

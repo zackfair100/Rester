@@ -11,6 +11,7 @@ class RouteField {
 	var $isRelation = false;
 	var $relation;
 	var $isFile = false;
+	var $isAutoIncrement = false;
 	
 	static function getTypeFromMySQL($mysqlType) {
 		$type = "string";

@@ -4,6 +4,7 @@ include_once("config.php");
 require_once(__DIR__.'/model/Route.php');
 require_once(__DIR__.'/model/RouteField.php');
 require_once(__DIR__.'/model/RouteRelation.php');
+require_once(__DIR__.'/ResterUtils.php');
 require_once(__DIR__.'/ApiDBDriver.php');
 require_once(__DIR__.'/ApiCacheManager.php');
 
@@ -44,7 +45,7 @@ class ArrestDB
 			if (isset($this::$db, $query) === true)
 			{
 			
-				error_log("QUERY: ".$query);
+				ResterUtils::Log("*** QUERY: ".$query." ***");
 			
 				if (strncasecmp($this::$db->getAttribute(\PDO::ATTR_DRIVER_NAME), 'mysql', 5) === 0)
 				{
@@ -58,8 +59,6 @@ class ArrestDB
 				
 				$data = array_slice(func_get_args(), 1);
 				
-				
-				
 				if (count($data, COUNT_RECURSIVE) > count($data))
 				{
 					$data = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveArrayIterator($data)), false);
@@ -67,18 +66,18 @@ class ArrestDB
 								
 				if ($result[$hash]->execute($data) === true)
 				{
-					$sequence = null;
+					/*$sequence = null;
 
 					if ((strncmp($this::$db->getAttribute(\PDO::ATTR_DRIVER_NAME), 'pgsql', 5) === 0) && (sscanf($query, 'INSERT INTO %s', $sequence) > 0))
 					{
 						$sequence = sprintf('%s_id_seq', trim($sequence, '"'));
-					}
+					}*/
 					
 					switch (strtoupper(strstr($query, ' ', true)))
 					{
 						case 'INSERT':
 						case 'REPLACE':
-							return $this::$db->lastInsertId($sequence);
+							return $this::$db->lastInsertId();
 
 						case 'UPDATE':
 						case 'DELETE':
@@ -89,8 +88,7 @@ class ArrestDB
 						case 'SHOW':
 						case 'DESCRIBE':
 							return $result[$hash]->fetchAll();
-						/*case 'DESCRIBE':
-							return $result[$hash]->fetchAll(PDO::FETCH_COLUMN);*/
+						
 					}
 					return true;
 				}
@@ -197,50 +195,6 @@ class ArrestDB
 		return (isset($this::$db) === true) ? $this::$db : false;
 	}
 
-	public static function Reply($data)
-	{
-	
-		if(isset($data["error"])) {
-			error_log("HTTP/1.1 ".$data["error"]["code"]." ".$data["error"]["status"]);
-			header("HTTP/1.1 ".$data["error"]["code"]." ".$data["error"]["status"], true, $data["error"]["code"]);
-		}
-	
-		$bitmask = 0;
-		$options = array('UNESCAPED_SLASHES', 'UNESCAPED_UNICODE');
-
-		if (empty($_SERVER['HTTP_X_REQUESTED_WITH']) === true)
-		{
-			$options[] = 'PRETTY_PRINT';
-		}
-
-		foreach ($options as $option)
-		{
-			$bitmask |= (defined('JSON_' . $option) === true) ? constant('JSON_' . $option) : 0;
-		}
-
-		if (($result = json_encode($data, $bitmask)) !== false)
-		{
-			$callback = null;
-
-			if (array_key_exists('callback', $_GET) === true)
-			{
-				$callback = trim(preg_replace('~[^[:alnum:]\[\]_.]~', '', $_GET['callback']));
-
-				if (empty($callback) !== true)
-				{
-					$result = sprintf('%s(%s);', $callback, $result);
-				}
-			}
-
-			if (headers_sent() !== true)
-			{
-				header(sprintf('Content-Type: application/%s; charset=utf-8', (empty($callback) === true) ? 'json' : 'javascript'));
-			}
-		}
-
-		return $result;
-	}
-
 	public static function Serve($on = null, $callback = null)
 	{
 
@@ -309,6 +263,9 @@ class ArrestDB
 			$routeField->isRequired = ($f["Null"] == "NO") ? true : false;
 			$routeField->defaultValue = $f["Default"];
 			$routeField->description = $routeField->fieldName." field ".$routeField->fieldType;
+			if($f["Extra"] == "auto_increment") {
+				$routeField->isAutoIncrement = TRUE;
+			}
 			
 			if(isset($currentRelations)) {
 				foreach($currentRelations as $r) {
@@ -319,6 +276,7 @@ class ArrestDB
 			}
 			
 			if($f["Key"] == "PRI") {
+				$routeField->isKey = true;
 				$route->primaryKey = $routeField;
 			}
 		

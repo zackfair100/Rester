@@ -8,6 +8,7 @@ define('ROUTE_CACHE_KEY', 'routesKey');
 class ApiCacheManager {
 		
 	static function getValueFromCache($valueName) {
+	
 		if(extension_loaded('apc') && ini_get('apc.enabled')) {
 			$data = apc_fetch($valueName, $success);
 			if(!$success)

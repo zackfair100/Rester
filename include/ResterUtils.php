@@ -25,6 +25,17 @@ class ResterUtils {
 		}
 	}
 	
+	static function Dump($x) {
+		if(defined('LOG_VERBOSE')) {
+			// Dump x
+			ob_start();
+			var_dump($x);
+			$contents = ob_get_contents();
+			ob_end_clean();
+			error_log($contents);
+		}
+	}
+	
 }
 
 ?>
