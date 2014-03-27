@@ -47,6 +47,9 @@ if(defined('API_VERSION') && file_exists(__DIR__."/versions/".API_VERSION.".php"
 }
 
 //Do the work
-$resterController->processRequest( $_SERVER['REQUEST_METHOD']);
+$resterController->processRequest($requestMethod);
+
+//We never have to be here
+$resterController->showError(405);
 
 ?>

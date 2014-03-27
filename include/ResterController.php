@@ -2,6 +2,7 @@
 
 require_once('config.php');
 require_once(__DIR__.'/ResterUtils.php');
+require_once(__DIR__.'/UUID.php');
 require_once(__DIR__.'/model/RouteFileProcessor.php');
 require_once('OAuthServer.php');
 require_once('OAuthStore.php');
@@ -32,6 +33,10 @@ class ResterController {
 			if(isset($routeName) && isset($routePath)) {
 				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routePath[0]], $this->getAvailableRoutes()));
 			}
+			$this->doResponse(NULL);
+		});
+		
+		$this->addRequestProcessor("HEAD", function($routeName = NULL, $routePath = NULL, $parameters = NULL) {
 			$this->showResult("");
 		});
 		
@@ -48,7 +53,7 @@ class ResterController {
 			}
 			
 			if(isset($routeName) && $routeName == "api-doc" && isset($routePath)) {
-				error_log("Returning apidoc");
+				ResterUtils::Log("Returning apidoc");
 				$this->doResponse(SwaggerHelper::getDocFromRoute($this->getAvailableRoutes()[$routePath[0]], $this->getAvailableRoutes()));
 			}
 			
@@ -97,10 +102,24 @@ class ResterController {
 			}
 		
 			if (empty($_POST) === true) { //if empty, create a barebone object
-				$this->showError(204);
+			
+				$body = $this->getRequestBody();			
+				
+				if($body == NULL) {
+					//not postbody and no post data... we create something...
+					ResterUtils::Log(">> CREATING BAREBONE 8======8");
+					$barebone = array();
+					$result = $this->insertObject($routeName, $barebone); //give all the post data	
+				} else {
+					//Create object from postbody
+					ResterUtils::Log(">> CREATING OBJECT FROM POSTBODY: *CREATE*");
+					$result = $this->insertObject($routeName, $body);
+				}
+				$this->showResult($result, 201);
+				
 			} else if (is_array($_POST) === true) { 
 				$result = $this->insertObject($routeName, $_POST); //give all the post data	
-				$this->showResult($result);
+				$this->showResult($result, 201);
 			}
 		});
 		
@@ -126,7 +145,7 @@ class ResterController {
 		
 		$this->addRequestProcessor("PUT", function($routeName, $routePath) {
 		
-			error_log("PROCESSING PUT");
+			ResterUtils::Log("PROCESSING PUT");
 			if(!isset($routeName)) {
 				$this->showError(400);
 			}
@@ -134,7 +153,7 @@ class ResterController {
 			$input = file_get_contents('php://input');
 			
 			if(empty($input)) {
-				error_log("Empty PUT request");
+				ResterUtils::Log("Empty PUT request");
 				$this->showError(400);
 			}
 			
@@ -143,19 +162,19 @@ class ResterController {
 				$putData = json_decode($input, true);
 				$route = $this->getAvailableRoutes()[$routeName];
 				if(is_array($putData) && ResterUtils::isIndexed($putData) && count($putData) > 0) { //iterate on elements and try to update
-					error_log("UPDATING MULTIPLE OBJECTS");
+					ResterUtils::Log("UPDATING MULTIPLE OBJECTS");
 					foreach($putData as $updateObject) {
-						error_log("UPDATING OBJECT ".$routeName." ID: ".$updateObject["id"]);
+						ResterUtils::Log("UPDATING OBJECT ".$routeName." ID: ".$updateObject["id"]);
 						if(isset($updateObject[$route->primaryKey->fieldName])) {
 							$result = $this->updateObjectFromRoute($routeName, $updateObject[$route->primaryKey->fieldName], $updateObject);
 						}
 					}
-					error_log("SUCCESS");
+					ResterUtils::Log("SUCCESS");
 					$this->doResponse(ApiResponse::successResponse());
 				} else {
-					error_log("UPDATING SINGLE OBJECT");
+					ResterUtils::Log("UPDATING SINGLE OBJECT");
 					if(!isset($putData[$route->primaryKey->fieldName])) {
-						error_log("No PRIMARY KEY FIELD ".$input);
+						ResterUtils::Log("No PRIMARY KEY FIELD ".$input);
 						echo $route->primaryKey->fieldName;
 						$this->showError(400);
 					}	 
@@ -166,7 +185,7 @@ class ResterController {
 		
 				parse_str($input, $putData);
 			
-					error_log("IS INDEXED");
+					ResterUtils::Log("IS INDEXED");
 					$result = $this->updateObjectFromRoute($routeName, $routePath[0], $putData);
 					$this->showResult($result);
 		
@@ -180,7 +199,7 @@ class ResterController {
 		
 		});
 	}
-	
+
 	function checkOAuth() {
 		
 		//Command to generate the Request Tokens
@@ -231,6 +250,16 @@ class ResterController {
 				exit();
 			//$this->showError(401);
 		}
+    }
+	
+	function getRequestBody() {
+		$requestBody = @file_get_contents('php://input');
+			
+		if(empty($requestBody)) {
+			return NULL;
+		} 
+			
+		return json_decode($requestBody, true);
 	}
 	
 	function checkRouteExists($routeName) {
@@ -333,7 +362,7 @@ class ResterController {
 				}
 			
 				/*
-				error_log("SERVING: ".$requestMethod." ".$pattern);
+				ResterUtils::Log("SERVING: ".$requestMethod." ".$pattern);
 				$result = ArrestDB::Serve($requestMethod, $callback);
 				if($result) {
 					$this->doResponse($result);	
@@ -371,12 +400,33 @@ class ResterController {
 		
 		foreach ($objectData as $row)
 		{
+	
 			$data = array();
 
 			foreach ($row as $key => $value)
 			{
-				$data[sprintf('"%s"', $key)] = '?';
-				$values[sprintf('"%s"', $key)] = $value;
+				$data[sprintf('%s', $key)] = '?';
+				$values[$key] = $value;
+			}
+			//No autoincrement support
+			$insertID = NULL;
+			if($route->primaryKey != NULL) {
+				//if(!isset($data[$route->primaryKey->fieldName])) { //we have not passed an id by parameters
+				if(!array_key_exists($route->primaryKey->fieldName, $data)) {
+					ResterUtils::Log(">> NO KEY SET ON CREATE *".$route->primaryKey->fieldName."*");
+					if($route->primaryKey->isAutoIncrement) { //put a dummy value to auto_increment do the job
+						$data[$route->primaryKey->fieldName] = '?';
+						$values[$route->primaryKey->fieldName] = '0';
+					} else {
+						$insertID = UUID::v4();
+						ResterUtils::Log(">> GENERATING NEW UUID ".$insertID);;
+						$data[$route->primaryKey->fieldName] = "?";
+						$values[$route->primaryKey->fieldName] = $insertID; //generate a UUID
+					}
+				} else {
+					//ResterUtils::Dump($values);
+					$insertID = $values[$route->primaryKey->fieldName];
+				}
 			}
 
 			$query = array
@@ -414,6 +464,12 @@ class ResterController {
 		}
 		
 	
+		if($result == 0) { //No insert id
+			$result = $insertID;
+		}
+	
+		ResterUtils::Log("RESULT: **** ".$result);
+	
 		//Process files
 		if(count($_FILES) > 0) { //we got files... process them
 			foreach($_FILES as $fileField => $f) {
@@ -426,8 +482,9 @@ class ResterController {
 			}
 		}
 		
-
-		return array_shift($this->getObjectByID($routeName,$result));
+		$object = $this->getObjectByID($routeName,$result);
+		
+		return array_shift($object);
 	}
 	
 	function getObjectsFromRouteName($routeName, $filters = NULL, $orFilter = false) {
@@ -436,6 +493,10 @@ class ResterController {
 	
 	function getObjectsFromRoute($route, $filters = NULL, $orFilter = false) {
 	
+		$fieldFilters = $filters;
+		$fieldFilters = $this->cleanReservedFields($fieldFilters);
+		
+		
 		if(isset($filters['order'])) {
 			$order['by']=$filters['order'];
 			unset($filters['order']);
@@ -477,11 +538,12 @@ class ResterController {
 		}
 
 		$i = 0;
-		if(isset($filters)) {
+		
+		if(isset($fieldFilters)) {
 			
 			$closeBracket = false;
 			
-			foreach($filters as $filterField => $filterValue) {
+			foreach($fieldFilters as $filterField => $filterValue) {
 			
 				if($i == 0) {
 					$q = "WHERE ("; 
@@ -553,7 +615,7 @@ class ResterController {
 		
 		//JOINS
 		if(count($route->getRelationFields()) > 0) {
-			if(!isset($filters) || count($filters) == 0) {
+			if(!isset($fieldFilters) || count($fieldFilters) == 0) {
 				$query[] = " WHERE ";
 			} else {
 				$query[] = " AND ";
@@ -598,6 +660,8 @@ class ResterController {
 		foreach($result as $row) {
 			$mainObject = ResterUtils::cleanArray($row, $route->getFieldNames(FALSE, FALSE));
 			
+			$mainObject = $route->mapObjectTypes($mainObject);
+			
 			if(count($route->getRelationFields()) > 0) {
 				foreach($route->getRelationFields() as $rf) {
 					
@@ -607,6 +671,8 @@ class ResterController {
 					foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
 						$relationObject[$fieldKey]=$row[$rName];
 					}
+					
+					$relationObject = $destinationRoute->mapObjectTaypes($relationObject);
 					
 					$mainObject[$rf->relation->destinationRoute]=$relationObject;
 				}
@@ -699,12 +765,14 @@ class ResterController {
 	
 	function showError($errorNumber) {
 		$result = ApiResponse::errorResponse($errorNumber);
-		exit(ArrestDB::Reply($result));
+		exit($this->doResponse($result));
 	}
 	
 	function showResult($result, $forceArray = false) {
 	
 		ResterUtils::Log("*** DISPLAY RESULT TO API ***");
+		
+		ResterUtils::Dump($result);
 	
 		if ($result === false || count($result) == 0) {
 			$this->showError(404);
@@ -720,8 +788,55 @@ class ResterController {
 		}
 	}
 	
-	private function doResponse($responseObject) {
-		exit(ArrestDB::Reply($responseObject));
+	private function doResponse($data, $responseCode = 200) {
+	
+		if(isset($data["error"])) {
+			ResterUtils::Log(">> Error Response: ".$data["error"]["code"]." ".$data["error"]["status"]);
+			header("HTTP/1.1 ".$data["error"]["code"]." ".$data["error"]["status"], true, $data["error"]["code"]);
+		}
+	
+		if($responseCode != 200) {
+			switch($responseCode) {
+				case 201:
+					header("HTTP/1.1 ".$responseCode." Created");
+				break;
+			}
+		}
+	
+		$bitmask = 0;
+		$options = array('UNESCAPED_SLASHES', 'UNESCAPED_UNICODE');
+
+		if (empty($_SERVER['HTTP_X_REQUESTED_WITH']) === true)
+		{
+			$options[] = 'PRETTY_PRINT';
+		}
+
+		foreach ($options as $option)
+		{
+			$bitmask |= (defined('JSON_' . $option) === true) ? constant('JSON_' . $option) : 0;
+		}
+
+		if (($result = json_encode($data, $bitmask)) !== false)
+		{
+			$callback = null;
+
+			if (array_key_exists('callback', $_GET) === true)
+			{
+				$callback = trim(preg_replace('~[^[:alnum:]\[\]_.]~', '', $_GET['callback']));
+
+				if (empty($callback) !== true)
+				{
+					$result = sprintf('%s(%s);', $callback, $result);
+				}
+			}
+
+			if (headers_sent() !== true)
+			{
+				header(sprintf('Content-Type: application/%s; charset=utf-8', (empty($callback) === true) ? 'json' : 'javascript'));
+			}
+		}
+
+		exit($result);
 	}
 	
 	function showRoutes() {
@@ -783,6 +898,20 @@ class ResterController {
 		return $result;
 	}
 	
+	function getReservedFields() {
+		return array("order", "limit", "orderType");
+	}
+	
+	function cleanReservedFields($fieldsMap) {
+		
+		foreach($this->getReservedFields() as $reserved) {
+			if(array_key_exists($reserved, $fieldsMap)) {
+				unset($fieldsMap[$reserved]);
+			}
+		}
+		
+		return $fieldsMap;
+	}
 	
 	/**
  * Parse raw HTTP request data
