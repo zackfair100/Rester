@@ -315,7 +315,7 @@ class ResterController {
 			$this->checkOAuth();
 		} else {
 			$publicRoutes = $this->publicMethods[$requestMethod];
-			if(!in_array($this->getRoutePath(), $publicRoutes))
+			if(!in_array($this->getRoutePath(), $publicRoutes) && !in_array($this->getCurrentRoute(), $publicRoutes))
 				$this->checkOAuth();
 			else
 				ResterUtils::Log("*** PUBLIC ROUTE ==> ".$this->getRoutePath());
