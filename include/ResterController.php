@@ -672,7 +672,7 @@ class ResterController {
 						$relationObject[$fieldKey]=$row[$rName];
 					}
 					
-					$relationObject = $destinationRoute->mapObjectTaypes($relationObject);
+					$relationObject = $destinationRoute->mapObjectTypes($relationObject);
 					
 					$mainObject[$rf->relation->destinationRoute]=$relationObject;
 				}
