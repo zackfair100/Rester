@@ -24,4 +24,8 @@ $resterController->addRouteCommand($loginCommand);
 $resterController->addPublicMethod("POST", "users/login");
 $resterController->addPublicMethod("GET", "testRoute");
 
+//File processor
+$resterController->addFileProcessor("imagenes_poi", "imagen");
+$resterController->addFileProcessor("poi", "imagenDefecto");
+
 ?>

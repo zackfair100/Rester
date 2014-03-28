@@ -25,7 +25,7 @@ $resterController = new ResterController();
 
 if(isset($_GET["cacheClear"])) {
 	ApiCacheManager::clear();
-	exit(ArrestDB::Reply("Cache Clear!"));
+	exit();
 }
 
 if (array_key_exists('_method', $_GET) === true)
@@ -38,10 +38,7 @@ else if (array_key_exists('HTTP_X_HTTP_METHOD_OVERRIDE', $_SERVER) === true)
 	$_SERVER['REQUEST_METHOD'] = strtoupper(trim($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']));
 }
 
-if(file_exists("fileProcessors.php")) {
-	include("fileProcessors.php");
-}
-
+//Include API Versions
 if(defined('API_VERSION') && file_exists(__DIR__."/versions/".API_VERSION.".php")) {
 	include(__DIR__."/versions/".API_VERSION.".php");
 }
