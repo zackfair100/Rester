@@ -202,6 +202,15 @@ class ResterController {
 
 	function checkOAuth() {
 		
+		
+		global $validOrigins;
+		
+		if(in_array($_SERVER['HTTP_ORIGIN'], $validOrigins)) {
+			return;
+		}
+		
+		
+		
 		//Command to generate the Request Tokens
 		$this->addRouteCommand(new RouteCommand("POST", "auth", "requestToken", function($params = NULL) {
 		
@@ -229,6 +238,10 @@ class ResterController {
 		ResterUtils::Log(">> CHECKING OAUTH ".$_SERVER['REQUEST_METHOD']);
 		
 		if (OAuthRequestVerifier::requestIsSigned()) {
+		
+			//If the request is signed, allow from any source
+			header('Access-Control-Allow-Origin: *');
+		
 			try {
 				$req = new OAuthRequestVerifier();
 				$id = $req->verify(false);
@@ -238,16 +251,28 @@ class ResterController {
 				header('HTTP/1.1 401 Unauthorized');
 				header('WWW-Authenticate: OAuth realm=""');
 				header('Content-Type: text/plain; charset=utf8');
-				echo $e->getMessage();
+				ResterUtils::Log(">> OAUTH ERROR >> ".$e->getMessage());
 				exit();
 			}	
 		} else {
-				header('HTTP/1.1 401 Unauthorized');
-				header('WWW-Authenticate: OAuth realm=""');
-				header('Content-Type: text/plain; charset=utf8');
-				echo "Authentication error";
-				ResterUtils::Log("*** AUTH ERROR *** ===>");
-				exit();
+				
+				ResterUtils::Log(">> OAUTH: Unsigned request");
+				if(isset($validOrigins)) {
+					foreach($validOrigins as $origin) {
+						ResterUtils::Log(">> ADD ORIGIN: ".$origin);
+						header('Access-Control-Allow-Origin: '.$origin);
+					}
+				} else {
+					//TODO; CHECK ORIGIN
+					header('HTTP/1.1 401 Unauthorized');
+					header('WWW-Authenticate: OAuth realm=""');
+					header('Content-Type: text/plain; charset=utf8');
+					echo "Authentication error";
+					ResterUtils::Log(">> OAUTH ERROR >> Request not signed");
+					ResterUtils::Log("*** AUTH ERROR *** ===>");
+					
+					exit();
+				}
 			//$this->showError(401);
 		}
     }
@@ -310,6 +335,13 @@ class ResterController {
 	function processRequest($requestMethod) {
 	
 		ResterUtils::Log("*** BEGIN PROCESSING REQUEST ".$requestMethod." *** ==> ".$this->getRoutePath());
+		
+		global $validOrigins;
+		
+		if(in_array($_SERVER['HTTP_ORIGIN'], $validOrigins)) {
+			ResterUtils::Log(">> ADD ORIGIN: ".$_SERVER['HTTP_ORIGIN']);
+			header('Access-Control-Allow-Origin: '.$_SERVER['HTTP_ORIGIN']);
+		}
 	
 		if(!isset($this->publicMethods[$requestMethod])) {
 			if($requestMethod !== "OPTIONS")

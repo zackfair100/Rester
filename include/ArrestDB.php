@@ -188,7 +188,7 @@ class ArrestDB
 
 		catch (\Exception $e)
 		{
-			exit(ArrestDB::Reply(ApiResponse::errorResponseWithMessage(503, $e->getMessage()." ".$query)));
+			throw $e;
 			return false;
 		}
 
