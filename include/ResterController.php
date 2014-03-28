@@ -226,7 +226,7 @@ class ResterController {
 		$store = OAuthStore::instance('PDO', array('conn' => ArrestDB::$db));
 		$server = new OAuthServer();
 		
-		ResterUtils::Log(">> CHECKING OAUTH");
+		ResterUtils::Log(">> CHECKING OAUTH ".$_SERVER['REQUEST_METHOD']);
 		
 		if (OAuthRequestVerifier::requestIsSigned()) {
 			try {
@@ -312,7 +312,8 @@ class ResterController {
 		ResterUtils::Log("*** BEGIN PROCESSING REQUEST ".$requestMethod." *** ==> ".$this->getRoutePath());
 	
 		if(!isset($this->publicMethods[$requestMethod])) {
-			$this->checkOAuth();
+			if($requestMethod !== "OPTIONS")
+				$this->checkOAuth();
 		} else {
 			$publicRoutes = $this->publicMethods[$requestMethod];
 			if(!in_array($this->getRoutePath(), $publicRoutes) && !in_array($this->getCurrentRoute(), $publicRoutes))
@@ -772,7 +773,7 @@ class ResterController {
 	
 		ResterUtils::Log("*** DISPLAY RESULT TO API ***");
 		
-		ResterUtils::Dump($result);
+		//ResterUtils::Dump($result);
 	
 		if ($result === false || count($result) == 0) {
 			$this->showError(404);
