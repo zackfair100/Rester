@@ -6,8 +6,8 @@ Rester is a fork of ArrestDB as codebase with many improvements and new features
 	
 ##Requeriments
 
-- PHP 5.3+ & PDO
-- SQLite / MySQL / PostgreSQL
+- PHP 5.4+ & PDO
+- MySQL
 
 ##Features
 

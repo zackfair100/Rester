@@ -205,7 +205,7 @@ class ResterController {
 		
 		global $validOrigins;
 		
-		if(in_array($_SERVER['HTTP_ORIGIN'], $validOrigins)) {
+		if(isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $validOrigins)) {
 			return;
 		}
 		
@@ -338,7 +338,7 @@ class ResterController {
 		
 		global $validOrigins;
 		
-		if(in_array($_SERVER['HTTP_ORIGIN'], $validOrigins)) {
+		if(isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $validOrigins)) {
 			ResterUtils::Log(">> ADD ORIGIN: ".$_SERVER['HTTP_ORIGIN']);
 			header('Access-Control-Allow-Origin: '.$_SERVER['HTTP_ORIGIN']);
 		}
