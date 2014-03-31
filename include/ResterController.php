@@ -332,16 +332,19 @@ class ResterController {
 		$this->requestProcessors[$requestMethod][]=$callback;
 	}
 		
-	function processRequest($requestMethod) {
-	
-		ResterUtils::Log("*** BEGIN PROCESSING REQUEST ".$requestMethod." *** ==> ".$this->getRoutePath());
-		
+	/**
+	* Add CORS headers or check for OAuth authentication
+	*/
+	function checkAuthentication() {
 		global $validOrigins;
 		
 		if(isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $validOrigins)) {
 			ResterUtils::Log(">> ADD ORIGIN: ".$_SERVER['HTTP_ORIGIN']);
 			header('Access-Control-Allow-Origin: '.$_SERVER['HTTP_ORIGIN']);
 		}
+	
+		if(!defined('ENABLE_OAUTH') || !ENABLE_OAUTH)
+			return;
 	
 		if(!isset($this->publicMethods[$requestMethod])) {
 			if($requestMethod !== "OPTIONS")
@@ -353,8 +356,14 @@ class ResterController {
 			else
 				ResterUtils::Log("*** PUBLIC ROUTE ==> ".$this->getRoutePath());
 		}
-	
+	}
 		
+	function processRequest($requestMethod) {
+	
+		ResterUtils::Log("*** BEGIN PROCESSING REQUEST ".$requestMethod." *** ==> ".$this->getRoutePath());
+		
+		
+		$this->checkAuthentication();
 		
 		if(isset($this->requestProcessors[$requestMethod])) {
 			foreach($this->requestProcessors[$requestMethod] as $callback) {
