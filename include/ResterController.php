@@ -346,11 +346,11 @@ class ResterController {
 		if(!defined('ENABLE_OAUTH') || !ENABLE_OAUTH)
 			return;
 	
-		if(!isset($this->publicMethods[$requestMethod])) {
+		if(!isset($this->publicMethods[$_SERVER['REQUEST_METHOD']])) {
 			if($requestMethod !== "OPTIONS")
 				$this->checkOAuth();
 		} else {
-			$publicRoutes = $this->publicMethods[$requestMethod];
+			$publicRoutes = $this->publicMethods[$_SERVER['REQUEST_METHOD']];
 			if(!in_array($this->getRoutePath(), $publicRoutes) && !in_array($this->getCurrentRoute(), $publicRoutes))
 				$this->checkOAuth();
 			else
