@@ -9,6 +9,9 @@ class ApiCacheManager {
 		
 	static function getValueFromCache($valueName) {
 	
+		if(!defined('CACHE_ENABLED') || !CACHE_ENABLED)
+			return NULL;
+		
 		if(extension_loaded('apc') && ini_get('apc.enabled')) {
 			$data = apc_fetch($valueName, $success);
 			if(!$success)
@@ -33,7 +36,7 @@ class ApiCacheManager {
 		if(extension_loaded('apc') && ini_get('apc.enabled')) {
 			apc_clear_cache();
 			apc_clear_cache('user');
-			error_log("Cleared cache");
+			ResterUtils::Log("Cleared cache");
 		}
 	}
 	
