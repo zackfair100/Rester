@@ -281,16 +281,10 @@ class ResterController {
 		}
     }
 	
-	function getRequestBody() {
-		$requestBody = @file_get_contents('php://input');
-			
-		if(empty($requestBody)) {
-			return NULL;
-		} 
-			
-		return json_decode($requestBody, true);
-	}
-	
+    /**
+     * Parses the request body and decodes the json
+     * @return object json parsed object
+     */
 	function getRequestBody() {
 		$requestBody = @file_get_contents('php://input');
 			
