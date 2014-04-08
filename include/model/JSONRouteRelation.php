@@ -23,11 +23,11 @@ class JSONRouteRelation extends RouteRelation {
 			foreach($parsed_relations as $r) {
 				
 				$relation = new JSONRouteRelation();
-				$relation->relationName = $r["relationName"];
-				$relation->route = $r["route"];
-				$relation->field = $r["field"];
-				$relation->destinationRoute = $r["destinationRoute"];
-				$relation->destinationField = $r["destinationField"];
+				$relation->relationName = $r->relationName;
+				$relation->route = $r->route;
+				$relation->field = $r->field;
+				$relation->destinationRoute = $r->destinationRoute;
+				$relation->destinationField = $r->destinationField;
 				
 				$relations[$relation->route][]=$relation;
 			}

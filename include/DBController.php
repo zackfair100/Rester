@@ -283,6 +283,19 @@ class DBController
 		return $routeFields;
 	}
 	
+ 	function insertObjectToDB($routeName, $object) {
+		
+		foreach ($object as $key => $value) {
+			$data[sprintf('%s', $key)] = '?';
+			$values[$key] = $value;
+		}
+		
+		$query = sprintf('INSERT INTO "%s" (%s) VALUES (%s)', $routeName, implode(', ', array_keys($data)), implode(', ', $data));
+		
+		return $this->Query($query, $values);
+		
+	}
+	
 	function getRoutes() {
 		$routes = ApiCacheManager::getValueFromCache(ROUTE_CACHE_KEY);
 		if($routes == NULL)
@@ -309,6 +322,8 @@ class DBController
 		
 		$json_relations = JSONRouteRelation::getJSONRelations();
 		
+		$relations = array_merge($relations, $json_relations);
+				
 		$result = DBController::Query("SHOW TABLES");
 	
 		if ($result === false) {

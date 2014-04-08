@@ -113,10 +113,8 @@ class ResterController {
 				} else {
 					//Create object from postbody
 					ResterUtils::Dump($body);
-					$data = array();
-					$data[]=$body;
 					ResterUtils::Log(">> CREATING OBJECT FROM POSTBODY: *CREATE* - ".$routeName);
-					$result = $this->insertObject($routeName, $data);
+					$result = $this->insertObject($routeName, $body);
 				}
 				$this->showResult($result, 201);
 				
@@ -206,8 +204,10 @@ class ResterController {
 		});
 	}
 
+	/**
+	 * This function checks if the request is CORS valid, if not checks for an authentication and setup the auth routes
+	 */
 	function checkOAuth() {
-		
 		
 		global $validOrigins;
 		
@@ -295,6 +295,11 @@ class ResterController {
 		return json_decode($requestBody, true);
 	}
 	
+	/**
+	 * Check if route is parsed
+	 * @param string $routeName
+	 * @return boolean true if route exists
+	 */
 	function checkRouteExists($routeName) {
 		if(!isset($this->getAvailableRoutes()[$routeName])) {
 				$this->showError(404);
@@ -308,7 +313,6 @@ class ResterController {
 			$this->getAvailableRoutes()[$routeName]->addFileProcessor($fieldName);	
 		} else
 			die("Can't add file processor ".$fieldName." to route ".$routeName);
-		
 	}
 	
 	function addPublicMethod($requestMethod, $routeName) {
@@ -370,7 +374,6 @@ class ResterController {
 	
 		ResterUtils::Log("*** BEGIN PROCESSING REQUEST ".$requestMethod." *** ==> ".$this->getRoutePath());
 		
-		
 		$this->checkAuthentication();
 		
 		if(isset($this->requestProcessors[$requestMethod])) {
@@ -410,17 +413,6 @@ class ResterController {
 				} catch(Exception $e) {
 					return false;
 				}
-			
-				/*
-				ResterUtils::Log("SERVING: ".$requestMethod." ".$pattern);
-<<<<<<< HEAD
-				$result = DBController::Serve($requestMethod, $callback);
-=======
-				$result = ArrestDB::Serve($requestMethod, $callback);
->>>>>>> aa96f58... - Support for cleaning values returned from database
-				if($result) {
-					$this->doResponse($result);	
-				}*/
 			}
 		} else {
 			ResterUtils::Log("*** ERROR *** Request processor not set ".$requestMethod);
@@ -435,8 +427,6 @@ class ResterController {
 		}*/
 	}
 	
-	
-	
 	/*************************************/
 	/* OBJECT MANAGEMENT METHODS
 	/*************************************/	
@@ -444,120 +434,78 @@ class ResterController {
 
 		$route = $this->getAvailableRoutes()[$routeName];
 	
-		$queries = array();
-
-		if (count($objectData) == count($objectData, COUNT_RECURSIVE))
-		{
-			$objectData = array($objectData);
+		$routeFieldNames = $route->getFieldNames(TRUE);
+		
+		if(in_array("uuid", $routeFieldNames)) {
+			$objectData["uuid"] = UUID::v4();
+		} 
+			
+		if(in_array("lastmoddate", $routeFieldNames)) {
+			$objectData["lastmoddate"] = time();
 		}
+			
+		if(in_array("createddate", $routeFieldNames)) {
+			$objectData["createddate"] = time();
+		}
+			
+		ResterUtils::Dump($objectData);
+			
 		
-		foreach ($objectData as $row)
-		{
-
-			
-			/////////////
-			// STACKMOB MIGRATION SUPPORT
-			/////////////
-			$routeFieldNames = $route->getFieldNames(TRUE);
+		$insertID = NULL;
 		
-			if(in_array("uuid", $routeFieldNames)) {
-				$row["uuid"] = UUID::v4();
-			} 
-			
-			if(in_array("lastmoddate", $routeFieldNames)) {
-				$row["lastmoddate"] = time();
-			}
-			
-			if(in_array("createddate", $routeFieldNames)) {
-				$row["createddate"] = time();
-			}
-			
-			ResterUtils::Dump($row);
-			
-			$data = array();
-
-			foreach ($row as $key => $value)
-			{
-				$data[sprintf('%s', $key)] = '?';
-				$values[$key] = $value;
-			}
-			//No autoincrement support
-			$insertID = NULL;
-			if($route->primaryKey != NULL) {
-				//if(!isset($data[$route->primaryKey->fieldName])) { //we have not passed an id by parameters
-				if(!array_key_exists($route->primaryKey->fieldName, $data)) {
-					ResterUtils::Log(">> NO KEY SET ON CREATE *".$route->primaryKey->fieldName."*");
-					if($route->primaryKey->isAutoIncrement) { //put a dummy value to auto_increment do the job
-						$data[$route->primaryKey->fieldName] = '?';
-						$values[$route->primaryKey->fieldName] = '0';
-					} else {
-						$insertID = UUID::v4();
-						ResterUtils::Log(">> GENERATING NEW UUID ".$insertID);;
-						$data[$route->primaryKey->fieldName] = "?";
-						$values[$route->primaryKey->fieldName] = $insertID; //generate a UUID
-					}
+		if($route->primaryKey != NULL) {
+			//if(!isset($data[$route->primaryKey->fieldName])) { //we have not passed an id by parameters
+			if(!array_key_exists($route->primaryKey->fieldName, $objectData)) {
+				ResterUtils::Log(">> NO KEY SET ON CREATE *".$route->primaryKey->fieldName."*");
+				if($route->primaryKey->isAutoIncrement) { //put a dummy value to auto_increment do the job
+					//$objectData[$route->primaryKey->fieldName] = '?';
+					$objectData[$route->primaryKey->fieldName] = '0';
 				} else {
-					//ResterUtils::Dump($values);
-					$insertID = $values[$route->primaryKey->fieldName];
+					$insertID = UUID::v4();
+					ResterUtils::Log(">> GENERATING NEW UUID ".$insertID);;
+					//$data[$route->primaryKey->fieldName] = "?";
+					$objectData[$route->primaryKey->fieldName] = $insertID; //generate a UUID
 				}
+			} else {
+				//ResterUtils::Dump($values);
+				$insertID = $objectData[$route->primaryKey->fieldName];
 			}
+		}			
 
-			$query = array
-			(
-				sprintf('INSERT INTO "%s" (%s) VALUES (%s)', $routeName, implode(', ', array_keys($data)), implode(', ', $data)),
-			);
+		$result = $this->dbController->insertObjectToDB($routeName, $objectData);
 
-		
-			$queries[] = array
-			(
-				sprintf('%s;', implode(' ', $query)),
-				$values,
-			);
-			
-		}
-
-		if (count($queries) > 1)
-		{
-			$this->dbController->Query()->beginTransaction();
-
-			while (is_null($query = array_shift($queries)) !== true)
-			{
-				if (($result = $this->dbController->Query($query[0], $query[1])) === false)
-				{
-					$this->dbController->Query()->rollBack(); break;
-				}
-			}
-
-			if (($result !== false) && ($this->dbController->Query()->inTransaction() === true))
-			{
-				$result = $this->dbController->Query()->commit();
-			}
-		} else if (is_null($query = array_shift($queries)) !== true) {
-			$result = $this->dbController->Query($query[0], $query[1]);
-		}
-		
-	
 		if($result == 0) { //No insert id
 			$result = $insertID;
 		}
-	
+		
 		ResterUtils::Log("RESULT: **** ".$result);
 	
+		//If we have files on the object, process them
+		$this->processFilesWithID($route, $result);
+		
+		//Get the object model by ID
+		$object = $this->getObjectByID($routeName,$result);
+		
+		return array_shift($object);
+	}
+	
+	/**
+	 * This method looks for uploaded files. If we have, get the ID of the object, and update the database according the upload field
+	 * @param Route $route
+	 * @param object $objectID
+	 */
+	private function processFilesWithID($route, $objectID) {
 		//Process files
 		if(count($_FILES) > 0) { //we got files... process them
 			foreach($_FILES as $fileField => $f) {
 				if($route->getFileProcessor($fileField) != NULL) { //We have to process
 					$processor = $route->getFileProcessor($fileField);
-					$upload = $processor->saveUploadFile($result, $route->routeName, $f);
-					$newData = array ($route->primaryKey->fieldName => $result, $fileField => $upload["destination"]);
-					$this->updateObjectFromRoute($route->routeName, $result, $newData);
+					$upload = $processor->saveUploadFile($objectID, $route->routeName, $f);
+					$newData = array ($route->primaryKey->fieldName => $objectID, $fileField => $upload["destination"]);
+					$this->updateObjectFromRoute($route->routeName, $objectID, $newData);
 				}
 			}
 		}
-		
-		$object = $this->getObjectByID($routeName,$result);
-		
-		return array_shift($object);
 	}
 	
 	function getObjectsFromRouteName($routeName, $filters = NULL, $orFilter = false) {
@@ -944,8 +892,6 @@ class ResterController {
 			return $this->getCurrentRoute();
 	}
 	
-	
-	
 	/**
 	* Search the tables of the DB and configures the routes
 	*/
@@ -996,7 +942,7 @@ class ResterController {
  * @param   array  Empty array to fill with data
  * @return  array  Associative array of request data
  */
-function parse_raw_http_request($input, array &$a_data)
+	function parse_raw_http_request($input, array &$a_data)
 {
    
   // grab multipart boundary from content type header
