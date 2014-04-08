@@ -4,16 +4,18 @@ include_once("config.php");
 require_once(__DIR__.'/model/Route.php');
 require_once(__DIR__.'/model/RouteField.php');
 require_once(__DIR__.'/model/RouteRelation.php');
+require_once(__DIR__.'/model/MySQLRouteRelation.php');
+require_once(__DIR__.'/model/JSONRouteRelation.php');
 require_once(__DIR__.'/ResterUtils.php');
 require_once(__DIR__.'/ApiDBDriver.php');
 require_once(__DIR__.'/ApiCacheManager.php');
 
-class ArrestDB
+class DBController
 {
 	
 	static $db = null;
 	
-	function ArrestDB() {
+	function DBController() {
 	
 		$options = array
 				(
@@ -188,6 +190,7 @@ class ArrestDB
 
 		catch (\Exception $e)
 		{
+			error_log($e->getMessage());
 			throw $e;
 			return false;
 		}
@@ -208,16 +211,10 @@ class ArrestDB
 
 		$root = preg_replace('~/++~', '/', substr($_SERVER['PHP_SELF'], strlen($_SERVER['SCRIPT_NAME'])) . '/');
 		
-		//No parameters, we are requesting the root
-		if($root === "/") {
-			
-		}
-		
 		$requestQuery = explode("?", $root);
 		
-		error_log($_SERVER["PHP_SELF"]." - ".$_SERVER['SCRIPT_NAME']." - ".$_SERVER['QUERY_STRING']);
+		//error_log($_SERVER["PHP_SELF"]." - ".$_SERVER['SCRIPT_NAME']." - ".$_SERVER['QUERY_STRING']);
 		
-			
 		if($route === "/" && $root === "/") {
 			error_log("PROCESSING ROOT");
 			return exit(call_user_func($callback));
@@ -232,10 +229,10 @@ class ArrestDB
 		//echo '~^' . str_replace(array('#any', '#num'), array('[^/]++', '[0-9]++'), $route) . '~i';
 			
 		if ($num_match = preg_match('~^' . str_replace(array('#any', '#num'), array('[^/]++', '[0-9]++'), $route) . '~i', $root, $parts) > 0) {	
-			error_log("PROCESSING CALLBACK ".$root." - ".$route);
+			ResterUtils::Log("PROCESSING CALLBACK ".$root." - ".$route);
 			return (empty($callback) === true) ? true : exit(call_user_func_array($callback, array_slice($parts, 1)));
 		} else {
-			error_log("NO MATCH ".$root." - ".$route);
+			ResterUtils::Log("NO MATCH ".$root." - ".$route);
 		}
 		
 		return false;
@@ -248,11 +245,11 @@ class ArrestDB
 	
 	function getRelations() {
 		$relations = $this->Query("select * from information_schema.key_column_usage where table_schema = '".DBNAME."' and referenced_table_name is not null");
-		return RouteRelation::parseRelationsFromMySQL($relations);
+		return MySQLRouteRelation::parseRelationsFromMySQL($relations);
 	}
 	
 	function getRouteFields($route, $currentRelations = null) {
-		$result = ArrestDB::Query("DESCRIBE ".$route->routeName);
+		$result = DBController::Query("DESCRIBE ".$route->routeName);
 		$routeFields = array();
 		
 		foreach($result as $f) {
@@ -299,9 +296,9 @@ class ArrestDB
 		unset($routes["oauth_server_registry"]);
 		unset($routes["oauth_server_token"]);
 		
+		//We create a virtual route called auth to add the auth methods
 		$authRoute = new Route();
 		$authRoute->routeName = "auth";
-		
 		$routes["auth"]=$authRoute;
 		
 		return $routes;
@@ -310,7 +307,9 @@ class ArrestDB
 	function getRoutesFromDB() {
 		$relations = $this->getRelations();
 		
-		$result = ArrestDB::Query("SHOW TABLES");
+		$json_relations = JSONRouteRelation::getJSONRelations();
+		
+		$result = DBController::Query("SHOW TABLES");
 	
 		if ($result === false) {
 			exit(ApiResponse::errorResponse(404));
@@ -327,13 +326,13 @@ class ArrestDB
 				else
 					$route->routeFields = $this->getRouteFields($route);
 				
-				error_log("PRIMARY KEY: ".$route->routeName." => ".$route->primaryKey->fieldName);
+				ResterUtils::Log("*** PRIMARY KEY: ".$route->routeName." => ".$route->primaryKey->fieldName);
 				
 				$routes[$route->routeName]=$route;
 			}
 		}
 		
-		ApiCacheManager::saveValueToCache(ROUTE_CACHE_KEY,$routes);
+		ApiCacheManager::saveValueToCache(ROUTE_CACHE_KEY, $routes);
 		
 		return $routes;
 	}

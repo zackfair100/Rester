@@ -7,7 +7,7 @@ if(!file_exists(__DIR__."/config.php"))
 	die("No config file found!");
 
 require_once(__DIR__.'/config.php');
-require_once(__DIR__.'/include/ArrestDB.php');
+require_once(__DIR__.'/include/DBController.php');
 require_once(__DIR__.'/include/ApiResponse.php');
 require_once(__DIR__.'/include/SwaggerHelper.php');
 require_once(__DIR__.'/include/ResterController.php');

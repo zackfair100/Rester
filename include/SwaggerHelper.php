@@ -1,7 +1,7 @@
 <?php
 
 require_once(__DIR__.'/../config.php');
-require_once(__DIR__.'/ArrestDB.php');
+require_once(__DIR__.'/DBController.php');
 
 class SwaggerHelper {
 	
@@ -36,7 +36,7 @@ class SwaggerHelper {
 			'apiVersion' => API_VERSION,
 			'apis' => $apis,
 			'resourcePath' => "/".$route->routeName,
-			//'basePath' => 'http://'.$_SERVER['HTTP_HOST'].ArrestDB::getRoot()
+			//'basePath' => 'http://'.$_SERVER['HTTP_HOST'].DBController::getRoot()
 			'swaggerVersion' => "1.2",
 			'produces' => array('application/json')
 		);

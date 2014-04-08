@@ -24,7 +24,7 @@ class ResterController {
 	var $publicMethods;
 	
 	function ResterController() {
-		$this->dbController = new ArrestDB();
+		$this->dbController = new DBController();
 		$this->checkConnectionStatus();
 		
 		//Internal processors
@@ -112,8 +112,11 @@ class ResterController {
 					$result = $this->insertObject($routeName, $barebone); //give all the post data	
 				} else {
 					//Create object from postbody
-					ResterUtils::Log(">> CREATING OBJECT FROM POSTBODY: *CREATE*");
-					$result = $this->insertObject($routeName, $body);
+					ResterUtils::Dump($body);
+					$data = array();
+					$data[]=$body;
+					ResterUtils::Log(">> CREATING OBJECT FROM POSTBODY: *CREATE* - ".$routeName);
+					$result = $this->insertObject($routeName, $data);
 				}
 				$this->showResult($result, 201);
 				
@@ -183,7 +186,10 @@ class ResterController {
 				}
 			} else { //id from URL
 		
-				parse_str($input, $putData);
+				//parse_str($input, $putData);
+				$putData = json_decode($input, true);
+				
+				ResterUtils::Dump($putData);
 			
 					ResterUtils::Log("IS INDEXED");
 					$result = $this->updateObjectFromRoute($routeName, $routePath[0], $putData);
@@ -208,9 +214,7 @@ class ResterController {
 		if(isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $validOrigins)) {
 			return;
 		}
-		
-		
-		
+
 		//Command to generate the Request Tokens
 		$this->addRouteCommand(new RouteCommand("POST", "auth", "requestToken", function($params = NULL) {
 		
@@ -218,7 +222,7 @@ class ResterController {
 				$this->showError(400);
 			}
 			
-			$store = OAuthStore::instance('PDO', array('conn' => ArrestDB::$db));
+			$store = OAuthStore::instance('PDO', array('conn' => DBController::$db));
 		
 			$key = $store->updateConsumer($_POST, $_POST["userId"], true);
 			$c = $store->getConsumer($key, $_POST["userId"]);
@@ -232,7 +236,7 @@ class ResterController {
 		
 		
 		// Create a new instance of OAuthStore and OAuthServer
-		$store = OAuthStore::instance('PDO', array('conn' => ArrestDB::$db));
+		$store = OAuthStore::instance('PDO', array('conn' => DBController::$db));
 		$server = new OAuthServer();
 		
 		ResterUtils::Log(">> CHECKING OAUTH ".$_SERVER['REQUEST_METHOD']);
@@ -405,7 +409,7 @@ class ResterController {
 			
 				/*
 				ResterUtils::Log("SERVING: ".$requestMethod." ".$pattern);
-				$result = ArrestDB::Serve($requestMethod, $callback);
+				$result = DBController::Serve($requestMethod, $callback);
 				if($result) {
 					$this->doResponse($result);	
 				}*/
@@ -428,9 +432,8 @@ class ResterController {
 	/*************************************/
 	/* OBJECT MANAGEMENT METHODS
 	/*************************************/	
-
 	function insertObject($routeName, $objectData) {
-	
+
 		$route = $this->getAvailableRoutes()[$routeName];
 	
 		$queries = array();
@@ -442,7 +445,26 @@ class ResterController {
 		
 		foreach ($objectData as $row)
 		{
-	
+			
+			/////////////
+			// STACKMOB MIGRATION SUPPORT
+			/////////////
+			$routeFieldNames = $route->getFieldNames(TRUE);
+		
+			if(in_array("uuid", $routeFieldNames)) {
+				$row["uuid"] = UUID::v4();
+			} 
+			
+			if(in_array("lastmoddate", $routeFieldNames)) {
+				$row["lastmoddate"] = time();
+			}
+			
+			if(in_array("createddate", $routeFieldNames)) {
+				$row["createddate"] = time();
+			}
+			
+			ResterUtils::Dump($row);
+			
 			$data = array();
 
 			foreach ($row as $key => $value)
@@ -776,7 +798,7 @@ class ResterController {
 
 			$query = array
 			(
-				sprintf('UPDATE `%s` SET %s WHERE `%s` = '.$objectID, $routeName, implode(',', $data), $currentRoute->primaryKey->fieldName),
+				sprintf('UPDATE `%s` SET %s WHERE `%s` = \''.$objectID.'\'', $routeName, implode(',', $data), $currentRoute->primaryKey->fieldName),
 			);
 
 			$query = sprintf('%s;', implode(' ', $query));
@@ -833,7 +855,7 @@ class ResterController {
 	private function doResponse($data, $responseCode = 200) {
 	
 		if(isset($data["error"])) {
-			ResterUtils::Log(">> Error Response: ".$data["error"]["code"]." ".$data["error"]["status"]);
+			ResterUtils::Log(">> Error Response: ".$data["error"]["code"]." ".$data["error"]["status"]." - ".$this->getCurrentRoute());
 			header("HTTP/1.1 ".$data["error"]["code"]." ".$data["error"]["status"], true, $data["error"]["code"]);
 		}
 	
