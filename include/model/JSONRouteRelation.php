@@ -28,8 +28,12 @@ class JSONRouteRelation extends RouteRelation {
 				$relation->field = $r->field;
 				$relation->destinationRoute = $r->destinationRoute;
 				$relation->destinationField = $r->destinationField;
+				$relation->inverse = $r->inverse;
 				
 				$relations[$relation->route][]=$relation;
+				if($r->inverse) {
+					$relations[$relation->destinationRoute][]=$relation;
+				}
 			}
 		}
 		

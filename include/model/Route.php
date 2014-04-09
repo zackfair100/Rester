@@ -16,11 +16,17 @@ class Route {
 	 * Returns the relation fields with this route
 	 * @return array of RouteField
 	 */
-	function getRelationFields() {
+	function getRelationFields($skipNonJoining = FALSE) {
 		$r = array();
 		foreach($this->routeFields as $rf) {
-			if($rf->isRelation)
-				$r[]=$rf;
+			
+			if($rf->isRelation) {
+				if($skipNonJoining) {
+					if($rf->fieldType != "json")
+						$r[]=$rf;
+				} else
+					$r[]=$rf;
+			}
 		}
 		return $r;
 	}
@@ -72,7 +78,6 @@ class Route {
 		return NULL;
 	}
 	
-
 	/**
 	 * PDO does not treat types of objects by default, this method casts the object values to appropiate type
 	 * @param object $object the source object
@@ -84,10 +89,39 @@ class Route {
 				if(isset($object[$rf->fieldName]))
 					$object[$rf->fieldName]=intval($object[$rf->fieldName]);
 			}
+			
+			if($rf->fieldType == "json") {
+				$objec[$rf->fieldName]="JSON";
+			}
 		}
 		return $object;
 	}
 
+	/**
+	 * Looks for id into object, if not found, we can generate one
+	 * @param object $objectData source object
+	 * @return string|NULL id of the object
+	 */
+	function getInsertIDFromObject($objectData) {
+		if($this->primaryKey != NULL) {
+			//if(!isset($data[$route->primaryKey->fieldName])) { //we have not passed an id by parameters
+			if(!array_key_exists($this->primaryKey->fieldName, $objectData)) {
+				ResterUtils::Log(">> NO KEY SET ON CREATE *".$this->primaryKey->fieldName."*");
+				if($this->primaryKey->isAutoIncrement) { //put a dummy value to auto_increment do the job
+					$objectData[$this->primaryKey->fieldName] = '0';
+				} else {
+					$insertID = UUID::v4();
+					ResterUtils::Log(">> GENERATING NEW UUID ".$insertID);;
+					$objectData[$this->primaryKey->fieldName] = $insertID; //generate a UUID
+				}
+			} else {
+				$insertID = $objectData[$this->primaryKey->fieldName];
+			}
+			return $insertID;
+		}
+		return NULL;
+	}
+	
 }
 
 ?>

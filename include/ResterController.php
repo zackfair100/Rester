@@ -112,13 +112,24 @@ class ResterController {
 					$result = $this->insertObject($routeName, $barebone); //give all the post data	
 				} else {
 					//Create object from postbody
-					ResterUtils::Dump($body);
 					ResterUtils::Log(">> CREATING OBJECT FROM POSTBODY: *CREATE* - ".$routeName);
-					$result = $this->insertObject($routeName, $body);
+					ResterUtils::Dump($body);
+					
+					
+					$route = $this->getAvailableRoutes()[$routeName];
+					
+					$existing = $this->getObjectByID($routeName, $body[$route->primaryKey->fieldName]);
+					
+					if($existing) { //we got an id, let's update the values
+						$result = $this->updateObjectFromRoute($routeName, $body[$route->primaryKey->fieldName], $body);
+					} else {
+						$result = $this->insertObject($routeName, $body);
+					}
 				}
 				$this->showResult($result, 201);
 				
 			} else if (is_array($_POST) === true) { 
+				ResterUtils::Log("+++ CREATING OBJECT FROM POST: *CREATE* - ".$routeName);
 				$result = $this->insertObject($routeName, $_POST); //give all the post data	
 				$this->showResult($result, 201);
 			}
@@ -187,7 +198,7 @@ class ResterController {
 				//parse_str($input, $putData);
 				$putData = json_decode($input, true);
 				
-				ResterUtils::Dump($putData);
+			
 			
 					ResterUtils::Log("IS INDEXED");
 					$result = $this->updateObjectFromRoute($routeName, $routePath[0], $putData);
@@ -441,38 +452,19 @@ class ResterController {
 		} 
 			
 		if(in_array("lastmoddate", $routeFieldNames)) {
-			$objectData["lastmoddate"] = time();
+			$objectData["lastmoddate"] = time() * 1000;
 		}
 			
 		if(in_array("createddate", $routeFieldNames)) {
-			$objectData["createddate"] = time();
+			$objectData["createddate"] = time() * 1000;
 		}
 			
-		ResterUtils::Dump($objectData);
-			
-		
-		$insertID = NULL;
-		
-		if($route->primaryKey != NULL) {
-			//if(!isset($data[$route->primaryKey->fieldName])) { //we have not passed an id by parameters
-			if(!array_key_exists($route->primaryKey->fieldName, $objectData)) {
-				ResterUtils::Log(">> NO KEY SET ON CREATE *".$route->primaryKey->fieldName."*");
-				if($route->primaryKey->isAutoIncrement) { //put a dummy value to auto_increment do the job
-					//$objectData[$route->primaryKey->fieldName] = '?';
-					$objectData[$route->primaryKey->fieldName] = '0';
-				} else {
-					$insertID = UUID::v4();
-					ResterUtils::Log(">> GENERATING NEW UUID ".$insertID);;
-					//$data[$route->primaryKey->fieldName] = "?";
-					$objectData[$route->primaryKey->fieldName] = $insertID; //generate a UUID
-				}
-			} else {
-				//ResterUtils::Dump($values);
-				$insertID = $objectData[$route->primaryKey->fieldName];
-			}
-		}			
-
-		$result = $this->dbController->insertObjectToDB($routeName, $objectData);
+		//Set the object ID
+		$insertID = $route->getInsertIDFromObject($objectData);
+		$objectData[$route->primaryKey->fieldName] = $insertID;
+	
+		//Insert the object into database
+		$result = $this->dbController->insertObjectToDB($route, $objectData);
 
 		if($result == 0) { //No insert id
 			$result = $insertID;
@@ -483,10 +475,44 @@ class ResterController {
 		//If we have files on the object, process them
 		$this->processFilesWithID($route, $result);
 		
+		$this->processInsertRelations($route, $objectData);
+		
 		//Get the object model by ID
 		$object = $this->getObjectByID($routeName,$result);
 		
-		return array_shift($object);
+		if(is_array($object) && ResterUtils::isIndexed($object)) {
+			$object=$object[0];
+		}
+		
+		
+		
+		return $object;
+	}
+	
+	private function processInsertRelations($route, $objectData) {
+
+		ResterUtils::Log("--- ROUTE FIELDS ---");
+		ResterUtils::Dump($route->routeFields);
+		
+		foreach ($objectData as $key => $value) {
+			//Check for relations on insert
+			if($route->routeFields[$key]->isRelation) {
+				
+				if($route->routeFields[$key]->fieldType == "json") {
+					$relation = $route->routeFields[$key]->relation;
+					
+					$destinationRoute = $this->getRoute($relation->destinationRoute);
+				
+					$objectID = $value[$destinationRoute->primaryKey->fieldName];
+				
+					$value[$relation->relationName]=json_encode($value[$relation->relationName]);
+				
+					$this->updateObjectFromRoute($destinationRoute->routeName, $objectID, $value);
+					
+					$this->updateObjectFromRoute($route->routeName, $objectData[$route->primaryKey->fieldName], array($relation->field => $objectID));
+				}
+			} 
+		}
 	}
 	
 	/**
@@ -514,29 +540,26 @@ class ResterController {
 	
 	function getObjectsFromRoute($route, $filters = NULL, $orFilter = false) {
 	
-		$fieldFilters = $filters;
-		$fieldFilters = $this->cleanReservedFields($fieldFilters);
 		
 		
-		if(isset($filters['order'])) {
-			$order['by']=$filters['order'];
-			unset($filters['order']);
-		}
-		if(isset($filters['orderType'])) {
-			$order['order']=$filters['orderType'];
-			unset($filters['orderType']);
-		}	
+		$result = $this->dbController->getObjectsFromDB($route, $filters, $this->getAvailableRoutes(), $orFilter);
 		
-		if(count($route->getRelationFields()) > 0) {
+		
+		
+		/*if(count($route->getRelationFields(TRUE)) > 0) {
 		
 			foreach($route->getRelationFields() as $rf) {
-				$destinationRoute = $this->getAvailableRoutes()[$rf->relation->destinationRoute];
 				
-				foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
-					$relationFieldNames[] = $rf->relation->relationName.".".$fieldKey." as ".$rName;
-				}
+				$relationClass = get_class($rf);
+				
+			
+						$destinationRoute = $this->getAvailableRoutes()[$rf->relation->destinationRoute];
+						
+						foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
+							$relationFieldNames[] = $rf->relation->relationName.".".$fieldKey." as ".$rName;
+						}
+				
 			}
-		
 		}
 		
 		$query[] = "SELECT ";
@@ -552,7 +575,7 @@ class ResterController {
 		
 		//$query = array(sprintf('SELECT * FROM "%s"', $route->routeName));
 		
-		if(count($route->getRelationFields()) > 0) {
+		if(count($route->getRelationFields(TRUE)) > 0) {
 			foreach($route->getRelationFields() as $relationField) {
 				$query[] = ",".$relationField->relation->destinationRoute." as ".$relationField->relation->relationName;
 			}
@@ -584,9 +607,7 @@ class ResterController {
 					$queryValue =$filterValue[$queryType];	
 					
 					$val = explode(",", $queryValue);
-					
-					
-					
+							
 					switch($queryType) {
 						case "in":
 							$q.="LIKE '%".$queryValue."%'";
@@ -608,7 +629,6 @@ class ResterController {
 						break;
 					}
 					
-					
 				} else {
 	
 					$val = explode(",", $filterValue);
@@ -616,11 +636,9 @@ class ResterController {
 					//search mode
 					$q.="= '".$val[0]."'";
 					
-					
 					for($i = 1; $i<count($val); $i++) {
 						$q.=" OR ".$route->routeName.".".$filterField." = '".$val[$i]."'";	
 					}
-
 				}
 				
 				$q.= ")";				
@@ -635,7 +653,7 @@ class ResterController {
 			$query[] = ")";
 		
 		//JOINS
-		if(count($route->getRelationFields()) > 0) {
+		if(count($route->getRelationFields(TRUE)) > 0) { //get relation fields, skipping non joinable
 			if(!isset($fieldFilters) || count($fieldFilters) == 0) {
 				$query[] = " WHERE ";
 			} else {
@@ -644,10 +662,11 @@ class ResterController {
 			$query [] = "(";
 			$i = 0;
 			foreach($route->getRelationFields() as $relationField) {
-				if($i > 0)
-					$query[] = "AND";
-				$query[] = " ".$route->routeName.".".$relationField->relation->field." = ".$relationField->relation->relationName.".".$relationField->relation->destinationField." ";
-				$i++;
+					if($i > 0)
+						$query[] = "AND";
+					$query[] = " ".$route->routeName.".".$relationField->relation->field." = ".$relationField->relation->relationName.".".$relationField->relation->destinationField." ";
+					$i++;
+				
 			}
 			$query [] = ")";
 		}
@@ -676,35 +695,59 @@ class ResterController {
 		
 		$query = sprintf('%s;', implode(' ', $query));
 		
-		$result = $this->dbController->Query($query);
+		$result = $this->dbController->Query($query);*/
 		
-		foreach($result as $row) {
-			$mainObject = ResterUtils::cleanArray($row, $route->getFieldNames(FALSE, FALSE));
-			
-			$mainObject = $route->mapObjectTypes($mainObject);
-			
-			if(count($route->getRelationFields()) > 0) {
-				foreach($route->getRelationFields() as $rf) {
-					
-					$destinationRoute = $this->getAvailableRoutes()[$rf->relation->destinationRoute];
-									
-					$relationObject = array();
-					foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
-						$relationObject[$fieldKey]=$row[$rName];
-					}			
-
-					$relationObject = $destinationRoute->mapObjectTypes($relationObject);
-					
-					$mainObject[$rf->relation->destinationRoute]=$relationObject;
-				}
-			}
-			
-			$response[]=$mainObject;
-		}
+		$response = $this->processRawObjects($route, $result);
+		
 		if(!isset($response)) {
 			return NULL;
 		}
 		return $response;
+	}
+	
+	function processRawObjects($route, $rawObjects) {
+		
+		foreach($rawObjects as $row) { //Iterate over rows of results
+			ResterUtils::Dump($row);
+			//Clean array values
+			$mainObject = ResterUtils::cleanArray($row, $route->getFieldNames(FALSE, FALSE));
+		
+			//Map objects to it's correct types
+			$mainObject = $route->mapObjectTypes($mainObject);
+						
+			if(count($route->getRelationFields()) > 0) {
+				foreach($route->getRelationFields() as $rf) {
+					
+					if($rf->relation->inverse && $route->routeName == $rf->relation->destinationRoute) {
+						
+						$jsonObject = json_decode($row[$rf->relation->relationName]);
+						
+						if(!$jsonObject)
+							$jsonObject=array();
+						
+						$mainObject[$rf->relation->relationName]=$jsonObject;
+					} else {
+						$destinationRoute = $this->getAvailableRoutes()[$rf->relation->destinationRoute];
+						
+						$relationObject = array();
+					
+						foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
+							$relationObject[$fieldKey]=$row[$rName];
+						}
+		
+						$relationObject = $destinationRoute->mapObjectTypes($relationObject);
+						
+						$mainObject[$rf->relation->destinationRoute]=$relationObject;
+					}
+				}
+			}
+				
+			$response[]=$mainObject;
+		}
+		if(isset($response))
+			return $response;
+		
+		return NULL;
 	}
 	
 	function query($query) {
@@ -722,7 +765,7 @@ class ResterController {
 		$filter = array($route->primaryKey->fieldName => $ID);
 			
 		$result = $this->getObjectsFromRoute($route, $filter);
-		
+			
 		return $result;	
 	}
 	
@@ -747,22 +790,10 @@ class ResterController {
 		$currentRoute = $this->getAvailableRoutes()[$routeName];
 		
 		if(is_array($newData) === true) {
-			$data = array();
-
-			foreach ($newData as $key => $value) {
-				$data[$key] = sprintf('`%s` = ?', $key);
-			}
-
-			$query = array
-			(
-				sprintf('UPDATE `%s` SET %s WHERE `%s` = \''.$objectID.'\'', $routeName, implode(',', $data), $currentRoute->primaryKey->fieldName),
-			);
-
-			$query = sprintf('%s;', implode(' ', $query));
-			
-			$result = $this->dbController->Query($query, $newData);
-			
-			return $result;
+			$this->dbController->updateObjectOnDB($currentRoute, $objectID, $newData);
+			return $this->getObjectByID($routeName, $objectID);
+		} else {
+			$this->showError(500);
 		}
 	}
 	
@@ -855,6 +886,8 @@ class ResterController {
 			}
 		}
 
+		ResterUtils::Dump($result);
+		
 		exit($result);
 	}
 	
@@ -915,20 +948,7 @@ class ResterController {
 		return $result;
 	}
 	
-	function getReservedFields() {
-		return array("order", "limit", "orderType");
-	}
 	
-	function cleanReservedFields($fieldsMap) {
-		
-		foreach($this->getReservedFields() as $reserved) {
-			if(array_key_exists($reserved, $fieldsMap)) {
-				unset($fieldsMap[$reserved]);
-			}
-		}
-		
-		return $fieldsMap;
-	}
 	
 	/**
  * Parse raw HTTP request data

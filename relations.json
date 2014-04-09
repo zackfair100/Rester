@@ -1,9 +1,10 @@
 [
 	{ 
 		"relationName" : "photos",
-		"route" : "imprifyalbum",
-		"field" : "photos",
-		"destinationRoute" : "imprifyphoto",
-		"destinationField" : "imprifyphoto_id"
+		"route" : "imprifyphoto",
+		"field" : "album",
+		"destinationRoute" : "imprifyalbum",
+		"destinationField" : "imprifyalbum_id",
+		"inverse" : true
 	}
 ]	

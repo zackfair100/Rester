@@ -25,7 +25,7 @@ $resterController = new ResterController();
 
 if(isset($_GET["cacheClear"])) {
 	ApiCacheManager::clear();
-	exit();
+	//exit();
 }
 
 if (array_key_exists('_method', $_GET) === true)

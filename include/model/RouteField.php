@@ -24,8 +24,13 @@ class RouteField {
 		
 	function setRelation($routeRelation) {
 		$this->isRelation = true;
-		$this->fieldName = $routeRelation->relationName;
-		$this->fieldType = $routeRelation->destinationRoute;
+		
+		if(!is_a($routeRelation, "JSONRouteRelation")) {
+			$this->fieldName = $routeRelation->relationName;
+			$this->fieldType = $routeRelation->destinationRoute;
+		} else {
+			$this->fieldType = "json";
+		}
 		$this->relation = $routeRelation;
 		$this->isRequired = false;
 		//error_log("SET RELATION ".$this->fieldName." ".$routeRelation->relationName." - type: ".$routeRelation->route);

@@ -97,98 +97,9 @@ class DBController
 
 				return false;
 			}
-
-			/*else if (isset($query) === true)
-			{
-				$options = array
-				(
-					\PDO::ATTR_CASE => \PDO::CASE_NATURAL,
-					\PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-					\PDO::ATTR_EMULATE_PREPARES => false,
-					\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-					\PDO::ATTR_ORACLE_NULLS => \PDO::NULL_NATURAL,
-					\PDO::ATTR_STRINGIFY_FETCHES => false,
-				);
-				
-				$dsn = DSN;
-
-				if (preg_match('~^sqlite://([[:print:]]++)$~i', $query, $dsn) > 0)
-				{
-					$options += array
-					(
-						\PDO::ATTR_TIMEOUT => 3,
-					);
-					
-					$this::$db = new \PDO(sprintf('sqlite:%s', $dsn[1]), null, null, $options);
-					$pragmas = array
-					(
-						'automatic_index' => 'ON',
-						'cache_size' => '8192',
-						'foreign_keys' => 'ON',
-						'journal_size_limit' => '67110000',
-						'locking_mode' => 'NORMAL',
-						'page_size' => '4096',
-						'recursive_triggers' => 'ON',
-						'secure_delete' => 'ON',
-						'synchronous' => 'NORMAL',
-						'temp_store' => 'MEMORY',
-						'journal_mode' => 'WAL',
-						'wal_autocheckpoint' => '4096',
-					);
-
-					if (strncasecmp(PHP_OS, 'WIN', 3) !== 0)
-					{
-						$memory = 131072;
-
-						if (($page = intval(shell_exec('getconf PAGESIZE'))) > 0)
-						{
-							$pragmas['page_size'] = $page;
-						}
-
-						if (is_readable('/proc/meminfo') === true)
-						{
-							if (is_resource($handle = fopen('/proc/meminfo', 'rb')) === true)
-							{
-								while (($line = fgets($handle, 1024)) !== false)
-								{
-									if (sscanf($line, 'MemTotal: %d kB', $memory) == 1)
-									{
-										$memory = round($memory / 131072) * 131072; break;
-									}
-								}
-
-								fclose($handle);
-							}
-						}
-
-						$pragmas['cache_size'] = intval($memory * 0.25 / ($pragmas['page_size'] / 1024));
-						$pragmas['wal_autocheckpoint'] = $pragmas['cache_size'] / 2;
-					}
-
-					foreach ($pragmas as $key => $value)
-					{
-						$this::$db->exec(sprintf('PRAGMA %s=%s;', $key, $value));
-					}
-				}
-
-				else if (preg_match('~^(mysql|pgsql)://(?:(.+?)(?::(.+?))?@)?([^/:@]++)(?::(\d++))?/(\w++)/?$~i', $query, $dsn) > 0)
-				{
-					if (strncasecmp($query, 'mysql', 5) === 0)
-					{
-						$options += array
-						(
-							\PDO::ATTR_AUTOCOMMIT => true,
-							\PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES "utf8" COLLATE "utf8_general_ci", time_zone = "+00:00";',
-							\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
-						);
-					}
-
-					$this::$db = new \PDO(sprintf('%s:host=%s;port=%s;dbname=%s', "mysql", $dsn[4], $dsn[5], $dsn[6]), $dsn[2], $dsn[3], $options);
-				}
-			}*/
 		}
 
-		catch (\Exception $e)
+		catch (Exception $e)
 		{
 			error_log($e->getMessage());
 			throw $e;
@@ -266,8 +177,14 @@ class DBController
 			
 			if(isset($currentRelations)) {
 				foreach($currentRelations as $r) {
-					if($r->field == $routeField->fieldName) {
+					if($r->field == $routeField->fieldName && $r->route == $route->routeName) {
 						$routeField->setRelation($r);
+						ResterUtils::Log("+++ ADD RELATION: ".$route->routeName." >> ".$routeField->fieldName);
+					}
+					//Inverses
+					if($r->destinationRoute == $route->routeName && $r->relationName == $routeField->fieldName && $r->inverse) {
+						$routeField->setRelation($r);
+						ResterUtils::Log("+++ ADD INVERSE: ".$route->routeName." >> ".$routeField->fieldName);
 					}
 				}
 			}
@@ -277,23 +194,205 @@ class DBController
 				$route->primaryKey = $routeField;
 			}
 		
-			$routeFields[]=$routeField;
+			$routeFields[$routeField->fieldName]=$routeField;
 		}
-		
+			
 		return $routeFields;
 	}
 	
- 	function insertObjectToDB($routeName, $object) {
+ 	function insertObjectToDB($route, $object) {
 		
+ 		//ResterUtils::Dump($route);
+ 		
 		foreach ($object as $key => $value) {
-			$data[sprintf('%s', $key)] = '?';
-			$values[$key] = $value;
+			//Check for relations on insert
+			if(!$route->routeFields[$key]->isRelation) {
+				$data[sprintf('%s', $key)] = '?';
+				$values[$key] = $value;
+			}
 		}
 		
-		$query = sprintf('INSERT INTO "%s" (%s) VALUES (%s)', $routeName, implode(', ', array_keys($data)), implode(', ', $data));
+		$query = sprintf('INSERT INTO "%s" (%s) VALUES (%s)', $route->routeName, implode(', ', array_keys($data)), implode(', ', $data));
 		
 		return $this->Query($query, $values);
+	}
+	
+	function updateObjectOnDB($route, $objectID, $objectData) {
+		$data = array();
 		
+		foreach ($objectData as $key => $value) {
+			$data[$key] = sprintf('`%s` = ?', $key);
+		}
+		
+		$query = array
+		(
+				sprintf('UPDATE `%s` SET %s WHERE `%s` = \''.$objectID.'\'', $route->routeName, implode(',', $data), $route->primaryKey->fieldName),
+		);
+		
+		$query = sprintf('%s;', implode(' ', $query));
+			
+		$result = $this->Query($query, $objectData);
+			
+		return $result;
+	}
+	
+	function getObjectsFromDB($route, $filters, $availableRoutes, $orFilter = false) {
+		$selectFields = array();
+		$selectTables = array();
+		$joins = array();
+		$queryFields = array();
+		
+		
+		//Order Stuff
+		if(isset($filters['order'])) {
+			$order['by']=$filters['order'];
+			unset($filters['order']);
+		}
+		if(isset($filters['orderType'])) {
+			$order['order']=$filters['orderType'];
+			unset($filters['orderType']);
+		}
+		
+		//Add the main route fields
+		$selectFields = array_merge($selectFields, $route->getFieldNames(FALSE, TRUE));
+		//Process relations
+		if(count($route->getRelationFields()) > 0) {
+			foreach($route->getRelationFields() as $rf) {
+				if($rf->relation->inverse && $rf->relation->route != $route->routeName && $route->routeName == $rf->relation->destinationRoute) {
+					$selectFields[]=$rf->relation->relationName;
+					//$selectTables[$rf->relation->destinationRoute] = $rf->relation->field;
+					//$joins[] = $rf->relation->field.".".$rf->relation->destinationField." = ".$route->routeName.".".$rf->relation->field;
+				} else {
+					$destinationRoute = $availableRoutes[$rf->relation->destinationRoute];
+					
+					foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
+						//if(!$rf->relation->inverse || $rf->relation->)
+							if($fieldKey != $rf->relation->field)
+								$selectFields[] = $rf->relation->relationName.".".$fieldKey." as ".$rName;
+					}
+					
+					$selectTables[$rf->relation->destinationRoute] = $rf->relation->relationName;
+					$joins[] = $route->routeName.".".$rf->relation->field." = ".$rf->relation->relationName.".".$rf->relation->destinationField;
+					
+				}
+			}
+		}
+		//Main Route Table
+		$selectTables[$route->routeName]=$route->routeName;
+		
+		
+		$fieldFilters = $filters;
+		$fieldFilters = $this->cleanReservedFields($fieldFilters);
+
+		//Filters
+		//filterfields
+		if(count($fieldFilters) > 0) {
+			foreach($fieldFilters as $filterField => $filterValue) {
+				$q = " (".$route->routeName.".".$filterField." ";
+		
+				if(is_array($filterValue)) {
+					$queryType = array_keys($filterValue)[0];
+					$queryValue = $filterValue[$queryType];
+		
+					$val = explode(",", $queryValue);
+		
+					switch($queryType) {
+						case "in":
+							if(is_array($val) && count($val) > 1) {
+								//search mode
+								$q.="= '".$val[0]."'";
+		
+								for($i = 1; $i<count($val); $i++) {
+									$q.=" OR ".$route->routeName.".".$filterField." = '".$val[$i]."'";
+								}
+							} else
+								$q.="LIKE '%".$queryValue."%'";
+							break;
+						case "gt":
+							$q.="> ".$queryValue;
+							break;
+						case "lt":
+							$q.="< ".$queryValue;
+							break;
+						case "ge":
+							$q.=">= ".$queryValue;
+							break;
+						case "le":
+							$q.="<= ".$queryValue;
+							break;
+						default:
+							$q.="= '".$queryValue."'";
+							break;
+					}
+		
+				} else {
+		
+					$val = explode(",", $filterValue);
+		
+					//search mode
+					$q.="= '".$val[0]."'";
+		
+					for($i = 1; $i<count($val); $i++) {
+						$q.=" OR ".$route->routeName.".".$filterField." = '".$val[$i]."'";
+					}
+				}
+		
+				$q.= ")";
+		
+				$queryFields[] = $q;
+			}
+		}
+		
+		// Construct the query
+		
+		$query = "SELECT ";
+		$query .= implode(",", $selectFields);
+		$query .= " FROM ";
+		foreach($selectTables as $t => $ta) {
+			$tablesFormatted[] = $t." as ".$ta;
+		}
+		$query .= implode(",", $tablesFormatted);
+		
+		if(count($joins) > 0 || count($queryFields) > 0) {
+			$query.= " WHERE ";
+		}
+		
+		//Process joins
+		if(count($joins) > 0) {
+			$query.=" ( ".implode(" AND ", $joins)." ) ";
+		}
+		
+		if(count($queryFields) > 0) {
+			if(count($joins) > 0) {
+				$query.=" AND ";
+			}
+			$query.= implode(" AND ", $queryFields);
+		}
+		
+		if (isset($order['by']) === true)
+		{
+			if (isset($order['order']) !== true)
+			{
+				$order['order'] = 'ASC';
+			}
+		
+			$query .= sprintf(' ORDER BY "%s" %s', $order['by'], $order['order']);
+		}
+		
+		if (isset($filters['limit']) === true)
+		{
+			$query .= sprintf(' LIMIT %u', $filters['limit']);
+		
+			if (isset($filters['offset']) === true)
+			{
+				$query[] .= sprintf(' OFFSET %u', $filters['offset']);
+			}
+		} else { //Default limit
+			$query .= " LIMIT 1000";
+		}
+		
+		
+		return $this->Query($query);
 	}
 	
 	function getRoutes() {
@@ -323,6 +422,8 @@ class DBController
 		$json_relations = JSONRouteRelation::getJSONRelations();
 		
 		$relations = array_merge($relations, $json_relations);
+		
+		
 				
 		$result = DBController::Query("SHOW TABLES");
 	
@@ -350,6 +451,21 @@ class DBController
 		ApiCacheManager::saveValueToCache(ROUTE_CACHE_KEY, $routes);
 		
 		return $routes;
+	}
+	
+	function getReservedFields() {
+		return array("order", "limit", "orderType");
+	}
+	
+	function cleanReservedFields($fieldsMap) {
+	
+		foreach($this->getReservedFields() as $reserved) {
+			if(array_key_exists($reserved, $fieldsMap)) {
+				unset($fieldsMap[$reserved]);
+			}
+		}
+	
+		return $fieldsMap;
 	}
 	
 }

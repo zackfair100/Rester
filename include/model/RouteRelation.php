@@ -6,6 +6,7 @@ class RouteRelation {
 	var $field;
 	var $destinationRoute;
 	var $destinationField;
+	var $inverse;
 }
 
 ?>

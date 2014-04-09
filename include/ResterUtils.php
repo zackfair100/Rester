@@ -35,7 +35,6 @@ class ResterUtils {
 			error_log($contents);
 		}
 	}
-	
 }
 
 ?>
