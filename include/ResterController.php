@@ -113,7 +113,7 @@ class ResterController {
 				} else {
 					//Create object from postbody
 					ResterUtils::Log(">> CREATING OBJECT FROM POSTBODY: *CREATE* - ".$routeName);
-					ResterUtils::Dump($body);
+					//ResterUtils::Dump($body);
 					
 					
 					$route = $this->getAvailableRoutes()[$routeName];
@@ -492,7 +492,7 @@ class ResterController {
 	private function processInsertRelations($route, $objectData) {
 
 		ResterUtils::Log("--- ROUTE FIELDS ---");
-		ResterUtils::Dump($route->routeFields);
+		//ResterUtils::Dump($route->routeFields);
 		
 		foreach ($objectData as $key => $value) {
 			//Check for relations on insert
@@ -708,7 +708,7 @@ class ResterController {
 	function processRawObjects($route, $rawObjects) {
 		
 		foreach($rawObjects as $row) { //Iterate over rows of results
-			ResterUtils::Dump($row);
+			//ResterUtils::Dump($row);
 			//Clean array values
 			$mainObject = ResterUtils::cleanArray($row, $route->getFieldNames(FALSE, FALSE));
 		
@@ -716,9 +716,9 @@ class ResterController {
 			$mainObject = $route->mapObjectTypes($mainObject);
 						
 			if(count($route->getRelationFields()) > 0) {
-				foreach($route->getRelationFields() as $rf) {
-					
-					if($rf->relation->inverse && $route->routeName == $rf->relation->destinationRoute) {
+				foreach($route->getRelationFields() as $rf) {				
+					if(($rf->relation->inverse && $route->routeName == $rf->relation->destinationRoute) 
+					 || ($rf->fieldType == "json" && !$rf->relation->inverse)) {
 						
 						$jsonObject = json_decode($row[$rf->relation->relationName]);
 						
@@ -726,15 +726,16 @@ class ResterController {
 							$jsonObject=array();
 						
 						$mainObject[$rf->relation->relationName]=$jsonObject;
+						
 					} else {
 						$destinationRoute = $this->getAvailableRoutes()[$rf->relation->destinationRoute];
-						
+			
 						$relationObject = array();
 					
 						foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
 							$relationObject[$fieldKey]=$row[$rName];
 						}
-		
+						
 						$relationObject = $destinationRoute->mapObjectTypes($relationObject);
 						
 						$mainObject[$rf->relation->destinationRoute]=$relationObject;
@@ -886,7 +887,7 @@ class ResterController {
 			}
 		}
 
-		ResterUtils::Dump($result);
+		//ResterUtils::Dump($result);
 		
 		exit($result);
 	}

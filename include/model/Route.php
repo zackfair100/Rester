@@ -90,6 +90,10 @@ class Route {
 					$object[$rf->fieldName]=intval($object[$rf->fieldName]);
 			}
 			
+			if($rf->fieldType == "boolean") {
+				$object[$rf->fieldName]= (bool)$object[$rf->fieldName];
+			}
+			
 			if($rf->fieldType == "json") {
 				$objec[$rf->fieldName]="JSON";
 			}

@@ -12,7 +12,7 @@ class ResterUtils {
 	static function cleanArray($arr, $keys) {
 		$ret = array();
 		foreach($keys as $k) {
-			if(isset($arr[$k]))
+			if(isset($arr[$k]) && $arr[$k] !== "") //remove empty elements
 				$ret[$k]=$arr[$k];
 		}
 		

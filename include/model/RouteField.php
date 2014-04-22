@@ -19,6 +19,12 @@ class RouteField {
 			$type = "integer";
 		}
 		
+		if(strtolower($mysqlType) == "enum('false','true')" 
+				|| strtolower($mysqlType) == "enum('true','false')" 
+				|| strpos($mysqlType, "bool") !== false) {
+			$type = "boolean";
+		}
+		
 		return $type;
 	}
 		

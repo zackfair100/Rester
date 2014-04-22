@@ -258,24 +258,30 @@ class DBController
 		//Process relations
 		if(count($route->getRelationFields()) > 0) {
 			foreach($route->getRelationFields() as $rf) {
-				if($rf->relation->inverse && $rf->relation->route != $route->routeName && $route->routeName == $rf->relation->destinationRoute) {
-					$selectFields[]=$rf->relation->relationName;
-					//$selectTables[$rf->relation->destinationRoute] = $rf->relation->field;
-					//$joins[] = $rf->relation->field.".".$rf->relation->destinationField." = ".$route->routeName.".".$rf->relation->field;
-				} else {
-					$destinationRoute = $availableRoutes[$rf->relation->destinationRoute];
+				
+				ResterUtils::Dump($rf);
+				
+				if($rf->fieldType == "json" && !$rf->relation->inverse) {
+					$selectFields[] = $rf->relation->field;
 					
-					foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
-						//if(!$rf->relation->inverse || $rf->relation->)
-							if($fieldKey != $rf->relation->field)
-								$selectFields[] = $rf->relation->relationName.".".$fieldKey." as ".$rName;
-					}
-					
-					$selectTables[$rf->relation->destinationRoute] = $rf->relation->relationName;
-					$joins[] = $route->routeName.".".$rf->relation->field." = ".$rf->relation->relationName.".".$rf->relation->destinationField;
-					
+					continue;
 				}
+					
+				$destinationRoute = $availableRoutes[$rf->relation->destinationRoute];
+					
+				foreach($destinationRoute->getRelationFieldNames($rf->relation) as $fieldKey => $rName) {
+						//if(!$rf->relation->inverse || $rf->relation->)
+						if($fieldKey != $rf->relation->field)
+							$selectFields[] = $rf->relation->relationName.".".$fieldKey." as ".$rName;
+				}
+					
+				//$selectTables[$rf->relation->destinationRoute] = $rf->relation->relationName;
+				//$joins[] = $route->routeName.".".$rf->relation->field." = ".$rf->relation->relationName.".".$rf->relation->destinationField;
+				
+				$joins[]=$rf;
+					
 			}
+			
 		}
 		//Main Route Table
 		$selectTables[$route->routeName]=$route->routeName;
@@ -353,19 +359,21 @@ class DBController
 		}
 		$query .= implode(",", $tablesFormatted);
 		
-		if(count($joins) > 0 || count($queryFields) > 0) {
-			$query.= " WHERE ";
-		}
 		
 		//Process joins
 		if(count($joins) > 0) {
-			$query.=" ( ".implode(" AND ", $joins)." ) ";
+			$query .= " LEFT JOIN ".$rf->relation->destinationRoute." as ".$rf->relation->relationName." ON ".$rf->relation->route.".".$rf->relation->field." = ".$rf->relation->relationName.".".$rf->relation->destinationField;		
+			//$query.=" ( ".implode(" AND ", $joins)." ) ";
 		}
 		
+		
 		if(count($queryFields) > 0) {
-			if(count($joins) > 0) {
-				$query.=" AND ";
-			}
+			$query.= " WHERE ";
+		}
+		
+		
+		
+		if(count($queryFields) > 0) {
 			$query.= implode(" AND ", $queryFields);
 		}
 		
@@ -417,14 +425,20 @@ class DBController
 	}
 	
 	function getRoutesFromDB() {
+		$relations = array();
+		
 		$relations = $this->getRelations();
 		
 		$json_relations = JSONRouteRelation::getJSONRelations();
 		
-		$relations = array_merge($relations, $json_relations);
+		if(count($json_relations) > 0) {
+		 	foreach($json_relations as $route => $relation) {
+		 		$relations[$route]=array_merge($relations[$route], $relation);
+		 	}
+		}
+
+		ResterUtils::Dump($relations);
 		
-		
-				
 		$result = DBController::Query("SHOW TABLES");
 	
 		if ($result === false) {

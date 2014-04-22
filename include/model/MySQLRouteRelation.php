@@ -3,6 +3,9 @@
 class MySQLRouteRelation extends RouteRelation {
 	
 	static function parseRelationsFromMySQL($relationsArray) {
+		
+		ResterUtils::Log(">>> Processing Relations from MySQL");
+		
 		$relations = array();
 	
 		foreach($relationsArray as $r) {
@@ -14,6 +17,8 @@ class MySQLRouteRelation extends RouteRelation {
 			$relation->destinationField = $r["REFERENCED_COLUMN_NAME"];
 			$relations[$relation->route][]=$relation;
 		}
+		
+		ResterUtils::Dump($relations);
 	
 		return $relations;
 	}
