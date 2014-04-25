@@ -25,14 +25,21 @@ class ResterUtils {
 		}
 	}
 	
-	static function Dump($x) {
+	static function Dump($x, $message = NULL) {
 		if(defined('LOG_VERBOSE')) {
+			
+			if($message)
+				Log($message);
+			
 			// Dump x
 			ob_start();
 			var_dump($x);
 			$contents = ob_get_contents();
 			ob_end_clean();
 			error_log($contents);
+			
+			if($message)
+				Log("**************************************");
 		}
 	}
 }

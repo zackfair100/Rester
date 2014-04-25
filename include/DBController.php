@@ -259,11 +259,11 @@ class DBController
 		if(count($route->getRelationFields()) > 0) {
 			foreach($route->getRelationFields() as $rf) {
 				
-				ResterUtils::Dump($rf);
+				if($rf->relation->inverse && $rf->relation->route != $route->routeName)
+					continue;
 				
 				if($rf->fieldType == "json" && !$rf->relation->inverse) {
 					$selectFields[] = $rf->relation->field;
-					
 					continue;
 				}
 					
@@ -362,7 +362,7 @@ class DBController
 		
 		//Process joins
 		if(count($joins) > 0) {
-			$query .= " LEFT JOIN ".$rf->relation->destinationRoute." as ".$rf->relation->relationName." ON ".$rf->relation->route.".".$rf->relation->field." = ".$rf->relation->relationName.".".$rf->relation->destinationField;		
+			$query .= " LEFT JOIN ".$rf->relation->route." as ".$rf->relation->relationName." ON ".$rf->relation->relationName.".".$rf->relation->field." = ".$rf->relation->destinationRoute.".".$rf->relation->destinationField;		
 			//$query.=" ( ".implode(" AND ", $joins)." ) ";
 		}
 		
@@ -433,11 +433,12 @@ class DBController
 		
 		if(count($json_relations) > 0) {
 		 	foreach($json_relations as $route => $relation) {
-		 		$relations[$route]=array_merge($relations[$route], $relation);
+		 		if(isset($relations[$route]))
+		 			$relations[$route]=array_merge($relations[$route], $relation);
+		 		else 
+		 			$relations[$route]=$relation;
 		 	}
 		}
-
-		ResterUtils::Dump($relations);
 		
 		$result = DBController::Query("SHOW TABLES");
 	

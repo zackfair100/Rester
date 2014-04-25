@@ -85,54 +85,48 @@ class ResterController {
 			if(!isset($routeName)) {
 				$this->showError(400);
 			}
-		
+			
+			$body = $this->getPostData();
+
 			//Check for command
 			if(count($routePath) == 1) {
 				$command = $routePath[0];
 				if(isset($this->customRoutes["POST"][$routeName][$command])) {
 					ResterUtils::Log(">> Executing custom command <".$command.">");
 					$callback = $this->customRoutes["POST"][$routeName][$command];
-					call_user_func($callback, $parameters);
+					call_user_func($callback, $body);
 					return;
 				} else { //tenemos un id; hacemos un update
+					ResterUtils::Log(">> Update object from ID");
 					$result = $this->updateObjectFromRoute($routeName, $routePath[0], $_POST);
 					$this->processFiles($this->getAvailableRoutes()[$routeName], $_POST);
 					$this->showResult($result);
 				}
 			}
-		
-			if (empty($_POST) === true) { //if empty, create a barebone object
 			
-				$body = $this->getRequestBody();			
-				
-				if($body == NULL) {
-					//not postbody and no post data... we create something...
-					ResterUtils::Log(">> CREATING BAREBONE 8======8");
-					$barebone = array();
-					$result = $this->insertObject($routeName, $barebone); //give all the post data	
+			if($body == NULL) {
+				//not postbody and no post data... we create something...
+				ResterUtils::Log(">> CREATING BAREBONE 8======8");
+				$barebone = array();
+				$result = $this->insertObject($routeName, $barebone); //give all the post data	
+			} else {
+				//Create object from postbody
+				ResterUtils::Log(">> CREATING OBJECT FROM POSTBODY: *CREATE* - ".$routeName);
+				//ResterUtils::Dump($body);
+					
+				$route = $this->getAvailableRoutes()[$routeName];
+					
+				$existing = $this->getObjectByID($routeName, $body[$route->primaryKey->fieldName]);
+					
+				if($existing) { //we got an id, let's update the values
+					$result = $this->updateObjectFromRoute($routeName, $body[$route->primaryKey->fieldName], $body);
 				} else {
-					//Create object from postbody
-					ResterUtils::Log(">> CREATING OBJECT FROM POSTBODY: *CREATE* - ".$routeName);
-					//ResterUtils::Dump($body);
-					
-					
-					$route = $this->getAvailableRoutes()[$routeName];
-					
-					$existing = $this->getObjectByID($routeName, $body[$route->primaryKey->fieldName]);
-					
-					if($existing) { //we got an id, let's update the values
-						$result = $this->updateObjectFromRoute($routeName, $body[$route->primaryKey->fieldName], $body);
-					} else {
-						$result = $this->insertObject($routeName, $body);
-					}
+					$result = $this->insertObject($routeName, $body);
 				}
-				$this->showResult($result, 201);
-				
-			} else if (is_array($_POST) === true) { 
-				ResterUtils::Log("+++ CREATING OBJECT FROM POST: *CREATE* - ".$routeName);
-				$result = $this->insertObject($routeName, $_POST); //give all the post data	
-				$this->showResult($result, 201);
 			}
+				
+			$this->showResult($result, 201);
+			
 		});
 		
 		$this->addRequestProcessor("DELETE", function($routeName, $routePath) {
@@ -213,6 +207,23 @@ class ResterController {
 			}
 		
 		});
+	}
+	
+	/**
+	 * Tries to get the post data of a request. Null if no post data is given
+	 */
+	function getPostData() {
+		
+		$body = $this->getRequestBody();
+		if($body != NULL && is_array($body)) {
+		  return $body;	
+		} if (empty($_POST) === true) { //if empty, create a barebone object
+			return NULL;
+		} else if (is_array($_POST) === true) { 
+			return $_POST;
+		}
+		
+		return NULL;
 	}
 
 	/**
@@ -300,9 +311,13 @@ class ResterController {
 		$requestBody = @file_get_contents('php://input');
 			
 		if(empty($requestBody)) {
+			ResterUtils::Dump("ERR: Empty request body");
 			return NULL;
 		} 
-			
+		
+	
+		ResterUtils::Dump($requestBody, "*** REQUEST BODY ***");
+		
 		return json_decode($requestBody, true);
 	}
 	
@@ -332,16 +347,24 @@ class ResterController {
 	
 	function addRouteCommand($routeCommand) {
 		
+		ResterUtils::Log("+++ ADDING ROUTE COMMAND: ".$routeCommand->method." - ".$routeCommand->routeName." - ".$routeCommand->routeCommand);
+		
 		if($routeCommand->method == "DELETE" || $routeCommand->method == "PUT") {
 			exit($routeCommand->method." is not supported on custom commands. Use GET or POST instead");
 		}
 	
 		$routes = $this->getAvailableRoutes();
-		if(isset($routes[$routeCommand->routeName])) {
+		//if(isset($routes[$routeCommand->routeName])) {
 			$this->customRoutes[$routeCommand->method][$routeCommand->routeName][$routeCommand->routeCommand]=$routeCommand->callback;
+			
+			if(!isset($routes[$routeCommand->routeName]))
+				$routes[$routeCommand->routeName]=NULL;
+			
 			$route = $routes[$routeCommand->routeName];
 			$route->routeCommands[$routeCommand->routeCommand]=$routeCommand;
-		}
+		//}
+		
+		
 	}
 	
 	function checkClientRestriction() {
@@ -412,6 +435,7 @@ class ResterController {
 					if(isset($requestParameters)) {
 						$callbackParameters[2] = $requestParameters;
 						ResterUtils::Log(">> PARAMETERS: ".http_build_query($requestParameters));
+						ResterUtils::Dump($requestParameters);
 					}
 				}
 								
