@@ -28,7 +28,7 @@ class ResterUtils {
 	static function Dump($x, $message = NULL) {
 		if(defined('LOG_VERBOSE')) {
 			
-			if($message)
+			if($message != NULL)
 				Log($message);
 			
 			// Dump x
@@ -38,7 +38,7 @@ class ResterUtils {
 			ob_end_clean();
 			error_log($contents);
 			
-			if($message)
+			if($message != NULL)
 				Log("**************************************");
 		}
 	}
