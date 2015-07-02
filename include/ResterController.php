@@ -98,8 +98,8 @@ class ResterController {
 					return;
 				} else { //tenemos un id; hacemos un update
 					ResterUtils::Log(">> Update object from ID");
+					$this->processFiles($this->getAvailableRoutes()[$routeName], $routePath[0]);
 					$result = $this->updateObjectFromRoute($routeName, $routePath[0], $_POST);
-					$this->processFiles($this->getAvailableRoutes()[$routeName], $_POST);
 					$this->showResult($result);
 				}
 			}
@@ -822,15 +822,15 @@ class ResterController {
 		}
 	}
 	
-	function processFiles($route, $baseObject) {
+	function processFiles($route, $objectID) {
 			//Process files
 		if(count($_FILES) > 0) { //we got files... process them
 			foreach($_FILES as $fileField => $f) {
 				if($route->getFileProcessor($fileField) != NULL) { //We have to process
 					$processor = $route->getFileProcessor($fileField);
-					$upload = $processor->saveUploadFile($baseObject[$route->primaryKey->fieldName], $route->routeName, $f);
-					$newData = array ($route->primaryKey->fieldName => $baseObject[$route->primaryKey->fieldName], $fileField => $upload["destination"]);
-					$this->updateObjectFromRoute($route->routeName, $baseObject[$route->primaryKey->fieldName], $newData);
+					$upload = $processor->saveUploadFile($objectID, $route->routeName, $f);
+					$newData = array ($route->primaryKey->fieldName => $objectID, $fileField => $upload["destination"]);
+					$this->updateObjectFromRoute($route->routeName, $objectID, $newData);
 				}
 			}
 		}

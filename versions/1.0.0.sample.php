@@ -24,7 +24,7 @@ $resterController->addRouteCommand($loginCommand);
 $resterController->addPublicMethod("POST", "users/login");
 $resterController->addPublicMethod("GET", "testRoute");
 
-//File processor
+//Add file processor. parameter db_name, db_field. will update the db field based on relative path
 $resterController->addFileProcessor("imagenes_poi", "imagen");
 $resterController->addFileProcessor("poi", "imagenDefecto");
 
