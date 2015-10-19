@@ -179,7 +179,7 @@ class DBController
 				foreach($currentRelations as $r) {
 					if($r->field == $routeField->fieldName && $r->route == $route->routeName) {
 						$routeField->setRelation($r);
-						ResterUtils::Log("+++ ADD RELATION: ".$route->routeName." >> ".$routeField->fieldName);
+            ResterUtils::Log("+++ ADD RELATION: ".$route->routeName." >> ".$routeField->fieldType);
 					}
 					//Inverses
 					if($r->destinationRoute == $route->routeName && $r->relationName == $routeField->fieldName && $r->inverse) {
@@ -362,7 +362,9 @@ class DBController
 		
 		//Process joins
 		if(count($joins) > 0) {
-			$query .= " LEFT JOIN ".$rf->relation->route." as ".$rf->relation->relationName." ON ".$rf->relation->relationName.".".$rf->relation->field." = ".$rf->relation->destinationRoute.".".$rf->relation->destinationField;		
+      foreach($joins as $join) {
+        $query .= " LEFT JOIN ".$join->relation->destinationRoute." as ".$join->relation->relationName." ON (".$join->relation->route.".".$join->relation->field." = ".$join->relation->relationName.".".$join->relation->destinationField.")";
+      }
 			//$query.=" ( ".implode(" AND ", $joins)." ) ";
 		}
 		
