@@ -25,12 +25,11 @@ class RouteFileProcessor {
 		
 		if (file_exists($upload["destination"])) {
 			 error_log("File already exists");
-			 return NULL;
+			 return $upload;
 		} else {
 			move_uploaded_file($file["tmp_name"],  $upload["destination"]);
+			return $upload;
 		}
-    
-		return $upload;
 	}
 }
 
